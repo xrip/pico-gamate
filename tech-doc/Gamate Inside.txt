@@ -1,0 +1,784 @@
+                             Gamate Inside
+                             -------------
+							 
+By: Kevtris
+V1.00
+062916							 
+
+
+The Gamate is a fairly unknown and rare (in the west) handheld "Gameboy killer".  
+It was designed by Bit Corporation, a company that tended to release nothing but
+clones of other more popular games.  Just programmed more poorly.
+
+After awhile, UMC ended up buying the system/design and re-released it, and then
+released a bunch of much better games.  Again most of them seem to be clones of
+popular games but some of them aren't too terrible.
+
+Games are supplied on roughly credit card sized cartridges which are a bit
+thicker than a credit card.  There's 38 connections on the surface of the 
+cartridge, which the back of said carts calls the "golden finger".   
+
+There's typically 2 chips on each cartridge; a ROM and a protection/mapper chip.
+
+The CPU is an NCR 65CX02, which is very similar to a stock NMOS 6502. It is 
+*NOT* A 65C02!  The 65C02 instructions are missing.  Supposidly the bit 
+manipulation instructions are still present but I didn't test them and none of
+the games appear to use them.  They also could be mapped somewhere other than
+the usual 65C02 opcodes.
+
+The system runs off a 4.433MHz crystal, which is divided by 2 to provide the 
+CPU clock, which is half this. (2.2165MHz).  Video is a simple 256*256 pixel
+by 2 bitplane deep buffer.  The LCD is 160*150 pixels and can scroll around
+on the video buffer.  Audio is AY-3-8910.  
+
+There's two 8K SRAMs which act as a 16 bit wide by 8K deep video buffer, and
+1K of RAM for the 65CX02, along with 4K of BIOS ROM.  The latter is integrated
+in the main ASIC, and on some versions the 1K of RAM is integrated as well.
+On the oldest version with the NCR chip, the 1K of RAM is external.
+
+Finally, there's a simple SPI-like UART for linking two systems together, and
+an 8 way D-pad, start, select, A, and B buttons for input.   
+
+Big thanks to EdHunter for supplying the Gamate units for testing/reverse
+engineering and some documentation to get things rolling!
+
+This pretty much wraps up the basics.
+
+Cartridge pinout:
+-----------------
+
+Cartridges are flat, with a set of two staggered contacts.  The count is left
+to right, from one pin to the next, jumping back and forth between rows:
+
++--------------------------+
+|                          |
+|                          |
+|                          |
+|      (cart label)        |
+|                          |
+|                          |
+|                          |
+|                          |
+|1 3                       |
+|# # # # # # # # # # # # # |
+| # # # # # # # # # # # # #|
++--------------------------+
+  2 4                     38
+
+
+ 1 - nc
+ 2 - nc
+ 3 - nc
+ 4 - nc
+ 5 - nc
+ 6 - A15
+ 7 - A14
+ 8 - A12
+ 9 - A7
+10 - A6
+11 - A5
+12 - A4
+13 - A3
+14 - A2
+15 - A1
+16 - A0
+17 - D0
+18 - D1
+19 - D2
+20 - GND
+21 - D3
+22 - D4
+23 - D5
+24 - D6
+25 - D7
+26 - /CE (goes low at 6000-DFFF)  pulse is 220ns or so.
+27 - A10
+28 - A11
+29 - A9
+30 - A8
+31 - A13
+32 - VCC
+33 - R/W
+34 - /PERIPHERAL (goes low at 2000-3FFFh)  pulse is 220ns or so.
+35 - phi2 (2.2165MHz, 50% duty cycle)
+36 - nc
+37 - /RST (goes low on startup. see below)
+38 - Audio; before the volume control.  It's only the left channel though.
+
+NOTE:  /RST can be pulled low on UMC units to cause a system reset.  There's
+a diode on BIT corp units that prevents this from working.
+
+NOTE: Audio can be fed in via the Audio pin which will get mixed with the
+system's audio.  Left channel only, though, for some reason.  Why not center?
+
+NOTE: /CE and /PERIPHERAL go low when phi 2 is high.  
+
+There's three different versions of the ASIC, but the working systems I have
+only have one.
+
+
+Chip Pinout:
+------------
+
+UMC version marked UA6588F
+
+ 1 - A6 (6502)
+ 2 - A5 (6502)
+ 3 - A4 (6502)
+ 4 - A3 (6502)
+ 5 - A2 (6502)
+ 6 - A1 (6502)
+ 7 - A0 (6502)
+ 8 - D7 (6502)
+ 9 - D6 (6502)
+10 - D5 (6502)
+11 - D4 (6502)
+12 - D3 (6502)
+13 - D2 (6502)
+14 - D1 (6502)
+15 - D0 (6502)
+16 - GND
+17 - VCC
+18 - /WR U3
+19 - /WR U2
+20 - D7 U3
+21 - D6 U3
+22 - D5 U3
+23 - D4 U3
+24 - D3 U3
+25 - D2 U3
+26 - D1 U3
+27 - D0 U3
+28 - D7 U2
+29 - D6 U2
+30 - D5 U2
+
+31 - D4 U2
+32 - D3 U2
+33 - D2 U2
+34 - D1 U2
+35 - D0 U2
+36 - VCC
+37 - GND
+38 - LCD pin 3 (frame pulse)
+39 - LCD pin 2 (through JP1 - not soldered) (invert)
+40 - LCD pin 5 (row latch)
+41 - LCD pin 7 (D0)
+42 - LCD pin 8 (D1)
+43 - LCD pin 9 (D2)
+44 - LCD pin 10 (D3)
+45 - LCD pin 4 (bias)
+46 - LCD pin 6 (pixel clock)
+47 - A0 U2/U3
+48 - A1 U2/U3
+49 - A2 U2/U3
+50 - A3 U2/U3
+
+51 - A4 U2/U3
+52 - A5 U2/U3
+53 - A6 U2/U3
+54 - A7 U2/U3
+55 - A8 U2/U3
+56 - A9 U2/U3
+57 - A10 U2/U3
+58 - A11 U2/U3
+59 - A12 U2/U3
+60 - xtal
+61 - xtal
+62 - GND
+63 - VCC
+64 - audio
+65 - audio
+66 - audio
+67 - nc (TEST 1)
+68 - nc (TEST 0)
+69 - B button
+70 - A button
+71 - Right
+72 - Left
+73 - Down
+74 - Up
+75 - Select button
+76 - Start button
+77 - serial pin 1
+78 - serial pin 4
+79 - nc (TEST 2)
+80 - serial pin 5
+
+81 - serial pin 2
+82 - nc (TEST 3)
+83 - nc (TEST 4)
+84 - /CE
+85 - /PERIPHERAL
+86 - nc (/BIOS)
+87 - GND
+88 - VCC
+89 - R/W
+90 - /RST
+91 - phi 2
+92 - A15
+93 - A14
+94 - A13
+95 - A12
+96 - A11
+97 - A10
+98 - A9
+99 - A8
+100 - A7
+
+
+TEST 0:
+
+This pin is pulled high normally.  When grounded, it seems to stop the CPU
+running, and the phi 2 clock speeds up to 4.433MHz.  The chip appears to stop
+functioning, though the LCD is still being refreshed.
+
+TEST 1:
+
+This pin is pulled high normally.  When grounded, it stops the CPU, power
+consumption goes up and nothing else appears to happen.  The LCD continues 
+to be refreshed.
+
+TEST 2:
+
+Seems to be similar to TEST 1.  The pullup on this pin is very high impedance;
+just having a 10" wire dangling off the pin is enough to cause it to be very
+flaky.
+
+TEST 3:
+
+BIOS disable.  Pulling this pin low will disable the internal BIOS, and make it
+read data off the address bus.  This can be used to add a custom BIOS via the
+/BIOS pin.
+
+TEST 4:
+
+Some kind of output, but it seems to be stuck high.  I cannot make it toggle.
+
+/BIOS:
+
+This signal goes low when the CPU is reading from E000-FFFF.  It isn't too
+useful here, but that's what it does.  I guess they figured if the BIOS was
+defective they would map in a new one on the board.  The TEST 3 pin can be used
+to disable the internal BIOS so you can substitute an external one.
+
+
+LCD:
+----
+
+Pinout:
+
+ 1 - GND
+ 2 - invert (this is toggled every 2 row latch clocks to prevent polarizing LCD)
+ 3 - frame pulse (starts the row scan from the top again when high)
+ 4 - bias (high = low bias, low = high bias) - for making greyscale
+ 5 - row latch (high pulse = latch current row of 160 pixels)
+ 6 - pixel clock (high pulse = latch current 4 pixels)
+ 7 - D0 leftmost pixel of group
+ 8 - D1
+ 9 - D2
+10 - D3 rightmost pixel of group
+11 - -LCD_Bias (-19V on mine)
+12 - +5V
+
+
+The LCD timing is fairly straight forward, but weird.  The data lines are just 4 
+bits of a shift register exposed to the LCD, so the data can be seen shifting
+between every pixel clock.  The pixels shift at a 4.433MHz rate.  The clock
+pulses are 2x the crystal rate (i.e. effective 8.866MHz rate).
+
+
+crystal clock: __--__--__--__--__--__--__--__--__--__--__--__--__--__--__--__--__--__--__--__--__--__--__--__--__--__--_
+
+       data 0: __----________----____------------________----________----____xxxx____--------___________________________
+	   data 1: ______----________----____------------________----________----____xxxx____--------_______________________
+       data 2: __________----________----____------------________----________----____xxxx____--------___________________
+	   data 3: ______________----________----____------------____----____________----____xxxx____--------_______________
+	   
+  pixel clock: __________--______________--______________--______________--______________________--______________--_____
+    row latch: ______________________________________________________________--_________________________________________
+
+The xxxx points are always low.
+
+
+There's 4 crystal clocks between pixel clock pulses.  This gives the hardware
+enough time to shift the data bits.  There's a point at the start/end of the
+current row where there's an extra 2 clocks.  This is represented on the pixel
+clock diagram, above.  There's 161 pixels actually emitted by the hardware,
+with one not latched.  There's 162 clocks between row latch pulses.
+
+150 scanlines are emitted, which takes 3 refreshes each.  
+
+   invert: ___________------------------------------------------------________________________________________________-----
+    frame: _____________------------------------------------------------------------------------___________________________
+row latch: ___________--______________________--______________________--______________________--______________________--___
+    level: ___________------------------------________________________________________________------------------------_____
+	
+	
+Row latch is the same as above, it pulses every 162 clocks.  The "Level" signal
+is used by the LCD controller to run the biasing.  This, along with triple
+scanning every scanline, is how the LCD produces its 4 level greyscale.  The
+first bitplane (bitplane 0) is emitted once when level is high, and the second
+bitplane (bitplane 1) is emitted twice when level is low.  This means each
+scanline is refreshed 3 times per frame, one after another.  Depending on the
+2 bits in the two bitplanes, any particular pixel will see no, 1, 2, or 3
+refreshes per frame.  00b = none, 01b = 1 refresh, etc.
+
+Of the 150 scanlines emitted, all contain pixel data pulled from RAM. There are
+exactly 72900 clocks per frame, so at the nominal 4.433MHz rate, this means the
+frame rate is 60.8093Hz.  
+
+The frame pulse lasts approximately 3 row latch events, and occurs once per
+frame.  The invert signal simply toggles every 2 row latch events.  It just
+toggles every 2 and is not tied to a particular timing.
+
+
+Address Map:
+------------
+
+0000-1FFF : 1K of RAM (mirrored 8 times)
+2000-3FFF : peripheral space (not used) /PERIPHERAL low when in this range and phi 2 high
+4000-43FF : audio (reads as open bus)
+4400-47FF : write:  UART TX data.  read: controller data.
+4800-4BFF : UART RX data
+4C00-4FFF : accessing this will cause the TX shift register to clock 1 bit out
+5000-53FF : LCD (8 registers, mirrored a lot of times)
+5400-57FF : reads external space, which is usually 0ffh
+5800-58FF : reads open bus no matter what.  Writing with bit 5 set will lock up system.
+5900-59FF : written to.  doesn't seem to do much.
+5A00-5AFF : always returns 11b in bits 1:0, the other 6 bits are open bus (i.e. reads 5Bh)
+5B00-5FFF : reads open bus
+6000-DFFF : cartridge space, /CE is low when phi 2 is high and in this range
+E000-FFFF : 4K of BIOS, repeated twice
+
+Open bus:  reading an address will return the upper byte of the address usually.  i.e.
+reading 4100h will return 41h.  
+
+
+
+Cartridge Hardware:
+-------------------
+
+The cartridge hardware is relatively simple, but has an interesting form of
+crappy protection.  There's 2 mappers currently known.
+
+The protection is the same on all cartridges and works as follows:
+
+A string of text is sent to the cartridge at 6000h, bit 2.  Each character is 
+sent using 9 writes to 6000h.    The first 8 writes is the character bits, 
+starting MSB first.  After the 8 bits are sent, a final 0 bit is sent.
+This is repeated for all the characters of the message "BIT CORPORATION".
+
+After these 15 characters (135 writes to 6000h) are sent, the BIOS then reads
+6000h 8 times.  The mapper/protection chip will emit 47h, MSB first, out of
+bit 1.  The BIOS collects the bits and checks it against 47h.  If it is NOT
+47h, then the BIOS gets stuck in an endless loop reading 6000-60ffh.
+
+After the 8th read of 6000h, the mapper/protection chip will unlock the ROM
+and the ROM will be available at 6000h-dfffh. 
+
+The BIOS then checks for a string of text at 6005h-601dh.  If it is not
+present, it jumps to the "dead" loop.   That string is:
+"COPYRIGHT BIT CORPORATION"
+
+If that passes, then 7000-7fffh is sumchecked.  The sumcheck itself is stored
+at 6000/6001h.
+
+If the sumcheck fails, it jumps to the dead loop.  If all that passes, the
+Gamate logo appears and scrolls up the screen, followed by the flashing
+BIT logo.  After this, the cartridge code is called by jumping to 6020h.
+
+So to recap:
+
+ 1. BIOS emits "BIT CORPORATION" serially, 9 bits per character to 6000h.2
+ 2. BIOS reads 6000.1 8x to build a received byte.
+ 3. Mapper/protection chip unlocks ROM at this time, making it available.
+ 4. BIOS checks this received byte against 47h.
+ 5. If it is not 47h, the BIOS jumps to a "dead" loop.
+ 6. Read 6005-601dh.  It should be "COPYRIGHT BIT CORPORATION".
+ 7. If it was not, jump to "dead" loop.
+ 8. Sumcheck 7000-7fffh.
+ 9. Compare against sumcheck stored at 6000/6001h.  (6000h = lsb, 6001h = msb)
+10. If the sumcheck does not match, jump to "dead" loop.
+11. Show the scrolling logo
+12. Jump to 6020h in cart space.
+
+Notes:
+
+I suspect that the mapper/protection chip will respond anywhere at 6000-7fffh
+area for the unlock tests.
+
+
+
+Mappers:
+--------
+
+The cartridge ROM is stored at 6000-dfffh which is kind of a pain when it comes
+to address decoding.  The protection/mapper chip remaps the addresses slightly
+for the ROM, to "Flatten" out the address space.  i.e. 6000h -> 0000h in the
+ROM, 7000h -> 1000h in the ROM, etc.
+
+For cartridges that have a "flat" 32K address space, the ROM is simply mapped
+from 6000-dfffh.
+
+The larger games (64K and up) all use the same mapper, except the 4-in-1.
+
+This mapper is very simple:
+
+6000-9fffh points to the first 16K of the ROM always.
+a000-dfffh points to one of the other 16K banks in the ROM.  
+
+On reset, bank 1 (a000-dfffh) points to bank 0 in the ROM.   The games all
+write to c000h to bankswitch, but I suspect c000-dfffh will cause one to
+occur.
+
+That's pretty much it for the common mapper.
+
+The 4-in-1 mapper works the same as above, except the first 16K bank is also
+selectable.  This is done by writing to 8000h.  Again, I suspect 8000-9fffh
+will cause a switch to occur.  This bank also defaults to bank 0 on reset.
+
+
+LCD controller:
+---------------
+
+The LCD controller outputs a fixed refresh to the LCD.  It takes exactly 
+72900 clocks at 4.433MHz per frame.  The two 8K SRAMs are combined to form a
+single 16 bit wide 8K deep VRAM.  Bit 7 of the Xpos register determines which
+VRAM will be written to when Wdat is written.
+
+Registers:
+
+5000 - does not appear to be used
+5001 - LCDcon
+5002 - Xscroll
+5003 - Yscroll
+5004 - Xpos
+5005 - Ypos
+5006 - Rdat
+5007 - Wdat
+
+All registers except 5006 will read as open bus.
+
+
+5000 - does not appear to be used
+
+5001 - LCDcon:
+--------------
+
+7       0
+---------
+NXWS ???E
+
+E: When set, stops the LCD controller from refreshing the LCD.  This can
+   damage the LCD material because the invert signal is no longer toggling,
+   and the pixel/frame/row clocks/pulses are not being output.
+
+S: Swap plane bits.  When set, flip bit planes 0 and 1.
+
+W: D0-DF is mapped in at rows 00-0Fh at the top of the screen, with no
+   X scroll for those rows. (see window bit info below)
+
+X: When clear the video address increments by 1. When set, it increments
+   by 32.
+
+N: When set, clears the LCD by blanking the data.  The LCD refresh still occurs.
+
+
+
+
+5002 - Xscroll:
+---------------
+
+7       0
+---------
+XXXX XXXX
+
+X: 8 bit Xscroll value
+
+
+5003 - Yscroll:
+---------------
+
+7       0
+---------
+YYYY YYYY
+
+Y: 8 bit Yscroll value
+
+
+5004 - Xpos:
+------------
+
+7       0
+---------
+BxxX XXXX
+
+B: Bitplane. 0 = lower (bitplane 0), 1 = upper (bitplane 1)
+X: 5 lower bits of the 13 bit VRAM address.  
+
+5005 - Ypos:
+------------
+
+7       0
+---------
+YYYY YYYY
+
+Y: 8 upper bits of 13 bit VRAM address.
+
+5006 - Rdat:
+------------
+
+Reading here will return the data pointed to by Xpos/Ypos, and increment
+the VRAM address by 1 or 32 depending on the state of X bit in 5001.
+
+
+5007 - Wdat:
+------------
+
+Writing here will write data to VRAM pointed to by the VRAM address.
+The address will be incremented by 1 or 32 depending on the X bit in 5001.
+
+
+
+
+VRAM Mapping:
+-------------
+
+VRAM is a flat 8K space, with two bitplanes.  Each bitplane is 8K bytes in 
+size, and the two bitplanes together form the 2 bit deep frame buffer.  This
+is kind of an odd way of doing it but I guess it works.
+
+
+If both Xscroll and Yscroll are 00h, then the following pixel mapping is
+what results:
+
+
+pixel mapping:
+--------------
+
++----------------------
+|76543210
+|76543210
+|
+|
+|
+
+(upper left corner, two bytes worth of pixels shown)
+
+
+Address mapping:
+----------------
+
++--------------------/--------------+
+|[0000][0001][0002] ... [0012][0013]|
+|[0020][0021][0022] ... [0022][0023]|
+|[0040][0041][0042] ... [0042][0043]|
+|[0060][0061][0062] ... [0062][0063]|
+/  ...   ...   ...  ...   ...   ... |
+|[13c0][13c1][13c2] ... [13d2][13d3]|
+|[13e0][13e1][13e2] ... [13f2][13f3]|
++--------------------/--------------+
+
+(entire LCD area)
+
+
+The complete bitmap is 256*256 pixels in size, but only a viewport of 160 by
+150 pixels is visible at one time.  The entire X range is scrollable, but the
+entire Y range IS NOT.  It is not possible to see all of the pixels in the
+buffer.  I suspect this was done to allow for the window mode (see below). 
+
+The Xscroll register allows any of the pixels in X to be visible, and has clean
+wrapping on the edges, since the buffer is 256 pixels wide.  This allows for
+clean glitch free scrolling in the left and right directions.  
+
+If Xscroll is set to 8h, the following is what happens on the screen:
+
++--------------------/--------------+
+|[0001][0002][0003] ... [0013][0014]|
+|[0021][0022][0023] ... [0023][0024]|
+|[0041][0042][0043] ... [0043][0044]|
+|[0061][0062][0063] ... [0063][0064]|
+/  ...   ...   ...  ...   ...   ... |
+|[13c1][13c2][13c3] ... [13d3][13d4]|
+|[13e1][13e2][13e3] ... [13f3][13f4]|
++--------------------/--------------+
+
+Note that all the addresses shifted left one position, basically.
+
+Yscroll works in a similar fashion, but wraps after 200 scanlines.  If
+Yscroll is set to 1, and Xscroll is set to 0, the following occurs:
+
++--------------------/--------------+
+|[0020][0021][0022] ... [0022][0023]|
+|[0040][0041][0042] ... [0042][0043]|
+|[0060][0061][0062] ... [0062][0063]|
+|[0080][0081][0082] ... [0092][0093]|
+/  ...   ...   ...  ...   ...   ... |
+|[13e0][13e1][13e2] ... [13f2][13f3]|
+|[1400][1401][1402] ... [1412][1413]|
++--------------------/--------------+
+
+All the addresses are shifted up by 32d (20h).  
+
+Interestingly, the Yscroll counter wraps at 199d (C7h).  This allows
+for a seamless 200 pixel high scrolling area to be shown.  This means that
+normally some of VRAM goes to waste-  0000-18ffh are the only areas visible.
+
+By setting the Yscroll above C7h, a special "window" mode is possible.  I 
+suspect this was designed for horizontally scrolling games as a status bar or
+similar.  
+
+Using Yscroll values of C8-CF, D8-DF, E8-EF, and F8-FF will result in the same
+effect as if a Yscroll value of 00h were used.
+
+Values D0-D7, E0-E7, and F0-F7 all produce a bit more useful effect.  The upper
+1-8 scanlines will be pulled from rows F8-FFh in VRAM (i.e. 1F00h = row F8h).
+
+If F0 is selected, then the upper 8 rows will be the last 8 rows in VRAM-
+1F00-1FFFh area.  If F1 is selected, the upper 8 rows will be the last 7 rows
+in VRAM and so on.  This special window area DOES NOT SCROLL with X making it
+useful for status bars.  I don't think any games actually used it, though.
+
+Windowing:
+----------
+
+A simple "window" mode is available.  By setting the W bit on register 5001, the
+upper 16 rows on the display will show a fixed area in VRAM that does not 
+scroll with X OR Y.  The X/Y scrolls still function as normal- it's just the 
+top 16 rows are replaced by rows D0-DFh in VRAM.  The effective Xscroll
+position for this window is 0.
+
+
+
+Audio:
+------
+
+
+The audio on the Gamate appears to be an AY-3-8910, down to the register and 
+bit mappings, and log output.  There's even three audio output channels on the
+chip package.
+
+Channel 0 (4000/4001, etc) is output to left
+Channel 1 (4002/4003, etc) is output to right
+Channel 2 (4004/4005, etc) is output to both
+
+
+The clock going to the dividers is 4.433MHz / 32..  i.e. a divider value of
+0000h (maximum frequency) will cause an output of 69.265KHz.  A value of
+0FFFh will result in an output frequency of 16.914Hz.
+
+Everything appears to be an AY-3-8910 that I can tell.
+
+I tested all the registers, noise, envelope, and volume/mixer bits.  It's as
+stock as can be.  It's not the Yamaha clone with the 32 step envelope, 
+I checked this.
+
+
+IRQ:
+----
+
+There's a timer that fires an IRQ every 32768 clocks (approx. 135.28Hz).
+
+It appears to fire no matter what when IRQs are enabled.  The IRQ routine
+doesn't specifically acknowledge the IRQs, but a vector pull to RST or IRQ 
+should reset the timer/ IRQ flag.  This will cause a stream of interrupts to
+occur.
+
+
+
+
+UART:
+-----
+
+The UART contains both a transmitter and receiver.  Both are very simple.  The
+transmitter is software driven, and the receiver is hooked to the NMI line of
+the CPU.
+
+Transmission:
+-------------
+
+There's a simple 8 bit shift register transmitter that is software driven.  To
+send data, a byte is written to 4400h, then 4C00h is accessed 8 times.  This
+will cause the data to be sent.
+
+Reading or writing to 4C00h will cause a single bit to be sent.
+
+
+  clock ________________________|--|___________|--|______________________
+TX data _____________|-------------|______________|----------------------
+                     X          Y              Y
+
+X: the point where AAh was written to 4400h
+Y: the points where 4c00h was accessed.
+
+Writing to 4400h will cause the TX data line to reflect bit 7 of whatever was
+written.  Reading 4C00h will cause the TX clock line to pulse high for 468nS,
+then on the falling edge, data in the shift register will shift LEFT, causing
+the next bit (bit 6) that was written to 4400h to be output.  This repeats 
+until on the 8th clock, the data line will go low and stay low for all
+subsequent clocks.
+
+Reception:
+----------
+
+Whenever 8 clocks are received on the input clock line, an NMI is generated.
+The 8 bits that were received are available at 4800h.  There does not seem to
+be any way to reset the receiver if it gets desynched.  Data is latched on
+rising edge of the clock.
+
+
+Controller:
+-----------
+
+Reading 4400h returns the controller data:
+
+bit:
+
+0 - up
+1 - down
+2 - left
+3 - right
+4 - A
+5 - B
+6 - start
+7 - select
+
+When a button is pressed, it returns LOW.  When not pressed, it returns HIGH.
+
+
+Misc:
+-----
+
+During testing, I found several of what I thought were "bugs" in my
+implementation but ended up being bad programming.  
+
+Witty Apee (lolwut) and Money Maze both have really annoying sound effects
+the play continuously during player movement.  Unfortunately this is normal.
+I checked against the real system.
+
+Most games have brutal flashing and flickering sprites, as they are erased
+and redrawn.  This is normal and I guess they figured the LCD would hide the
+shame.  On a CRT it sure doesn't.
+
+Some games have bad graphics on the title screens and other places.  I 
+thought this was a problem, turns out it is normal too:
+
+World Cup Soccer:
+
+The 1/2 player selection just says "PLAYER" and "PLAYERS" like they forgot the
+1 and 2 digits.  This is normal.
+
+Insect War:
+
+Tons of crap on the title screen.  There's a line of blank pixels to the very
+left of the screen, and the INSECT name scrolls left a bit at the start 
+(erasing the blank line for a few frames), and the graphics in the background
+of INSECT do not line up at all with the rest of the graphics.  Again, 
+normal.
+
+There's more than that, but this is just a good example of what to watch out
+for.
+
+
+
