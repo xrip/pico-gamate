@@ -37,31 +37,7 @@ int m_displayblank;
 
 uint8_t VRAM[16384];
 
-#if 0
-void gamate_video_device::regs_map(address_map &map)
-{
-    map(0x01, 0x01).w(FUNC(gamate_video_device::lcdcon_w));
-    map(0x02, 0x02).w(FUNC(gamate_video_device::xscroll_w));
-    map(0x03, 0x03).w(FUNC(gamate_video_device::yscroll_w));
-    map(0x04, 0x04).w(FUNC(gamate_video_device::xpos_w));
-    map(0x05, 0x05).w(FUNC(gamate_video_device::ypos_w));
-    map(0x06, 0x06).r(FUNC(gamate_video_device::vram_r));
-    map(0x07, 0x07).w(FUNC(gamate_video_device::vram_w));
-}
-#endif
-
-static inline void set_vram_addr_lower_5bits(uint8_t data)
-{
-    m_vramaddress = (m_vramaddress & 0x3fe0) | (data & 0x1f);
-}
-
-static inline void set_vram_addr_upper_8bits(uint8_t data)
-{
-    m_vramaddress = (m_vramaddress & 0x001f) | (data << 5);
-}
-
-static inline void increment_vram_address()
-{
+static inline void increment_vram_address() {
     if (m_incrementdir)
         m_vramaddress += 0x20;
     else
@@ -70,8 +46,7 @@ static inline void increment_vram_address()
     m_vramaddress &= 0x1fff;
 }
 
-void lcdcon_w(uint8_t data)
-{
+void lcdcon_w(uint8_t data) {
     /*
     NXWS ???E
     E: When set, stops the LCD controller from refreshing the LCD.  This can
@@ -91,8 +66,7 @@ void lcdcon_w(uint8_t data)
     // setting data & 0x01 is bad
 }
 
-void xscroll_w(uint8_t data)
-{
+void xscroll_w(uint8_t data) {
     /*
     XXXX XXXX
     X: 8 bit Xscroll value
@@ -100,8 +74,7 @@ void xscroll_w(uint8_t data)
     m_scrollx = data;
 }
 
-void yscroll_w(uint8_t data)
-{
+void yscroll_w(uint8_t data) {
     /*
     YYYY YYYY
     Y: 8 bit Yscroll value
@@ -109,28 +82,25 @@ void yscroll_w(uint8_t data)
     m_scrolly = data;
 }
 
-void xpos_w(uint8_t data)
-{
+void xpos_w(uint8_t data) {
     /*
     BxxX XXXX
     B: Bitplane. 0 = lower (bitplane 0), 1 = upper (bitplane 1)
     X: 5 lower bits of the 13 bit VRAM address.
     */
     m_bitplaneselect = (data & 0x80) >> 7;
-    set_vram_addr_lower_5bits(data & 0x1f);
+    m_vramaddress = (m_vramaddress & 0x3fe0) | (data & 0x1f);
 }
 
-void ypos_w(uint8_t data)
-{
+void ypos_w(uint8_t data) {
     /*
     YYYY YYYY
     Y: 8 upper bits of 13 bit VRAM address.
     */
-    set_vram_addr_upper_8bits(data);
+    m_vramaddress = (m_vramaddress & 0x001f) | (data << 5);;
 }
 
-uint8_t vram_r()
-{
+uint8_t vram_r() {
     uint16_t address = m_vramaddress << 1;
 
     if (m_bitplaneselect)
@@ -143,8 +113,7 @@ uint8_t vram_r()
     return ret;
 }
 
-void vram_w(uint8_t data)
-{
+void vram_w(uint8_t data) {
     uint16_t address = m_vramaddress << 1;
 
     if (m_bitplaneselect)
@@ -155,8 +124,7 @@ void vram_w(uint8_t data)
     increment_vram_address();
 }
 
-void get_real_x_and_y(int &ret_x, int &ret_y, int scanline)
-{
+static inline void get_real_x_and_y(int &ret_x, int &ret_y, int scanline) {
     /* the Gamate video has 2 'Window' modes,
        Mode 1 is enabled with an actual register
        Mode 2 is enabled automatically based on the yscroll value
@@ -165,8 +133,7 @@ void get_real_x_and_y(int &ret_x, int &ret_y, int scanline)
        the top of the display.
     */
 
-    if (m_scrolly < 0xc8)
-    {
+    if (m_scrolly < 0xc8) {
         ret_y = scanline + m_scrolly;
 
         if (ret_y >= 0xc8)
@@ -176,14 +143,12 @@ void get_real_x_and_y(int &ret_x, int &ret_y, int scanline)
 
         if (m_window) /* Mode 1 Window */
         {
-            if (scanline < 0x10)
-            {
+            if (scanline < 0x10) {
                 ret_x = 0;
                 ret_y = 0xd0 + scanline;
             }
         }
-    }
-    else /* Mode 2, do any games use this ? does above Window logic override this if enabled? */
+    } else /* Mode 2, do any games use this ? does above Window logic override this if enabled? */
     {
         ret_x = m_scrollx;
 
@@ -195,9 +160,7 @@ void get_real_x_and_y(int &ret_x, int &ret_y, int scanline)
         {
             ret_y = 0x00;
             ret_x = m_scrollx;
-        }
-        else
-        {
+        } else {
             /*
                 Values D0-D7, E0-E7, and F0-F7 all produce a bit more useful effect.  The upper
                 1-8 scanlines will be pulled from rows F8-FFh in VRAM (i.e. 1F00h = row F8h).
@@ -209,13 +172,10 @@ void get_real_x_and_y(int &ret_x, int &ret_y, int scanline)
             */
             int fixedscanlines = m_scrolly & 0x7;
 
-            if (scanline <= fixedscanlines)
-            {
+            if (scanline <= fixedscanlines) {
                 ret_x = 0;
-                ret_y = 0xf8 + scanline + (7-fixedscanlines);
-            }
-            else
-            {
+                ret_y = 0xf8 + scanline + (7 - fixedscanlines);
+            } else {
                 // no yscroll in this mode?
                 ret_x = m_scrollx;
                 ret_y = scanline;// +m_scrolly;
@@ -228,8 +188,7 @@ void get_real_x_and_y(int &ret_x, int &ret_y, int scanline)
     }
 }
 
-int get_pixel_from_vram(int x, int y)
-{
+static inline int get_pixel_from_vram(int x, int y) {
     x &= 0xff;
     y &= 0xff;
 
@@ -238,8 +197,8 @@ int get_pixel_from_vram(int x, int y)
 
     int address = ((y * 0x20) + x_byte) << 1;
 
-    int plane0 = (VRAM[address] >> (7-x)) & 0x1;
-    int plane1 = (VRAM[address + 1] >> (7-x)) & 0x1;
+    int plane0 = (VRAM[address] >> (7 - x)) & 0x1;
+    int plane1 = (VRAM[address + 1] >> (7 - x)) & 0x1;
 
     if (!m_swapplanes)
         return plane0 | (plane1 << 1);
@@ -255,76 +214,13 @@ static const unsigned short palette_gamate[] = {
         RGB888(0x25, 0x59, 0x55),
         RGB888(0x12, 0x42, 0x4C)
 };
-uint32_t screen_update(uint8_t * screen)
-{
-    for (int y = 0; y < 150; y++)
-    {
-//        printf("updating scanline %d\n", y);
-        int real_x, real_y;
-        get_real_x_and_y(real_x, real_y, y);
+
+void screen_update(uint8_t *screen) {
+    int real_x, real_y;
+    for (int scanline = 0; scanline < 150; scanline++) {
+        get_real_x_and_y(real_x, real_y, scanline);
 
         for (int x = 0; x < 160; x++)
-        {
-            uint8_t pix = m_displayblank ? 0 : get_pixel_from_vram(x + real_x, real_y);
-
-            screen[y*160 +x] = pix;
-        }
+            screen[scanline * 160 + x] = m_displayblank ? 0 : get_pixel_from_vram(x + real_x, real_y);
     }
-
-    return 0;
 }
-
-
-#if 0
-void gamate_video_device::gamate_palette(palette_device &palette) const
-{
-    for (int i = 0; i < 4; i++)
-        palette.set_pen_color(i, palette_gamate[i * 3 + 0], palette_gamate[i * 3 + 1], palette_gamate[i * 3 + 2]);
-}
-
-/*
-    Of the 150 scanlines emitted, all contain pixel data pulled from RAM. There are
-    exactly 72900 clocks per frame, so at the nominal 4.433MHz rate, this means the
-    frame rate is 60.8093Hz.
-*/
-
-void gamate_video_device::device_add_mconfig(machine_config &config)
-{
-    screen_device &screen(SCREEN(config, "screen", SCREEN_TYPE_LCD));
-    screen.set_refresh_hz(60.8093);
-    screen.set_size(160, 150);
-    screen.set_visarea(0, 160-1, 0, 150-1);
-    screen.set_screen_update(FUNC(gamate_video_device::screen_update));
-    screen.set_palette("palette");
-    screen.set_video_attributes(VIDEO_UPDATE_SCANLINE); // close approximate until we use timers to emulate exact video update
-    screen.set_vblank_time(ATTOSECONDS_IN_USEC(0));
-
-    PALETTE(config, "palette", FUNC(gamate_video_device::gamate_palette), 4);
-}
-
-void gamate_video_device::device_start()
-{
-    m_vramspace = &space(0);
-
-    save_item(NAME(m_vramaddress));
-    save_item(NAME(m_bitplaneselect));
-    save_item(NAME(m_scrollx));
-    save_item(NAME(m_scrolly));
-    save_item(NAME(m_window));
-    save_item(NAME(m_swapplanes));
-    save_item(NAME(m_incrementdir));
-    save_item(NAME(m_displayblank));
-}
-
-void gamate_video_device::device_reset()
-{
-    m_vramaddress = 0;
-    m_bitplaneselect = 0;
-    m_scrollx = 0;
-    m_scrolly = 10;
-    m_window = 0;
-    m_swapplanes = 0;
-    m_incrementdir = 0;
-    m_displayblank = 0;
-}
-#endif

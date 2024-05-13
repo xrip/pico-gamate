@@ -421,8 +421,8 @@ Pcalc_stereo (PSG * psg, int32_t out[2])
     }
   }
 
-  out[0] = l << 5;
-  out[1] = r << 5;
+  out[0] = l;
+  out[1] = r;
 
   return;
 }
@@ -439,8 +439,8 @@ PSG_calc_stereo (PSG * psg, int16_t *out, int32_t samples)
     if (!psg->quality)
     {
         Pcalc_stereo (psg, buffers);
-        out[i] = buffers[0];
-        out[i+1] = buffers[1];
+        out[i] = (int16_t)(buffers[0] << 5);
+        out[i+1] = (int16_t)(buffers[1] << 5);
     }
     else
     {

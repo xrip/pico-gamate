@@ -17,7 +17,7 @@ extern "C" {
 #include "ps2kbd_mrmltr.h"
 
 
-#include "vdp.h"
+#include "gamate/vdp.h"
 #include "emu2149/emu2149.h"
 
 #define HOME_DIR "\\GAMATE"
@@ -1034,10 +1034,12 @@ void __time_critical_func(render_core)() {
 /* Typical AY-3-8910 configuration */
     PSG_init(&psg, 4'433'000 / 4, AUDIO_FREQ);
     PSG_setVolumeMode(&psg, 2); // AY style
+    PSG_reset(&psg);
+
     psg.stereo_mask[0] = 0x01;
     psg.stereo_mask[1] = 0x03;
     psg.stereo_mask[2] = 0x02;
-//    PSG_reset(&psg);
+
 
     const auto buffer = (uint8_t *)SCREEN;
     graphics_set_buffer(buffer, 160, 150);
@@ -1073,11 +1075,7 @@ void __time_critical_func(render_core)() {
             i2s_dma_write(&i2s_config, audio_buffer);
             last_sound_tick = tick;
         }
-//        if (audio_buf_index >= AUDIO_BUFFER_LENGTH) {
-//            audio_buf_index = 0;
-//            i2s_dma_write(&i2s_config, audio_buffer[active_buffer]);
-//            active_buffer ^= 1;
-//        }
+
         tick = time_us_64();
 
         // tuh_task();
@@ -1146,7 +1144,6 @@ extern "C" uint8_t __time_critical_func(Rd6502)(uint16_t address) {
 
     // BIOS
     if (address >= 0xE000) {
-
         return BIOS[(address - 0xE000) & 4095];
     }
 
@@ -1187,10 +1184,9 @@ extern "C" void __time_critical_func(Wr6502)(uint16_t address, uint8_t value) {
         return;
     }
 
-// 4in1 mapper switch firtst 16kb
+    // 4in1 mapper switch first 16kb
     if (address >= 0x8000 && address <= 0x9FFF) {
         bank0_offset = 0x4000 * value;
-        printf("bank2 switch %d\n", bank1_offset);
         return;
     }
 
