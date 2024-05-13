@@ -7,6 +7,7 @@
 #include <pico/stdlib.h>
 
 extern "C" {
+#include "m6502/m6502.h"
 }
 #include <graphics.h>
 #include "audio.h"
@@ -15,7 +16,7 @@ extern "C" {
 #include "ff.h"
 #include "ps2kbd_mrmltr.h"
 
-#include "m6502/m6502.h"
+
 #include "vdp.h"
 #include "emu2149/emu2149.h"
 
@@ -1094,6 +1095,7 @@ int frame_timer_start = 0;
 static M6502 cpu;
 static int bank0_offset = 0;
 static int bank1_offset = 0x4000;
+static uint8_t protection = 0;
 
 extern "C" uint8_t __time_critical_func(Rd6502)(uint16_t address) {
 
@@ -1102,7 +1104,6 @@ extern "C" uint8_t __time_critical_func(Rd6502)(uint16_t address) {
     }
 
     if (address >= 0x6000 && address <= 0x9FFF) {
-        static uint8_t protection = 0;
         if (protection < 8) {
             return ((0x47 >> (7 - protection++)) & 1) << 1;
         }
@@ -1207,6 +1208,7 @@ byte Loop6502(M6502 *R) {
     return INT_QUIT;
 }
 
+extern uint8_t VRAM[16384];
 int __time_critical_func(main)() {
     overclock();
 
@@ -1244,6 +1246,12 @@ int __time_critical_func(main)() {
 
         start_time = time_us_64();
         memset(RAM, 0xFF, sizeof(RAM));
+        memset(VRAM, 0x0, sizeof(VRAM));
+
+        bank0_offset = 0;
+        bank1_offset = 0x4000;
+        protection = 0;
+
         Reset6502(&cpu);
         cpu.IPeriod = 128;
         int cycles, irqCycles = 0;
