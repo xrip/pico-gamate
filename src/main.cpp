@@ -1166,12 +1166,7 @@ extern "C" void __time_critical_func(Wr6502)(uint16_t address, uint8_t value) {
 #ifndef HWAY
         PSG_writeReg(&psg, address - 0x4000, value);
 #else
-        SendAY(SET_REG_CHIP_1 | address - 0x4000);
-        SendAY(CHIP_SELECT_1 | address - 0x4000);
-
-        SendAY(CHIP_SELECT_1 | value);
-        SendAY(SET_DATA_CHIP_1 | value);
-        SendAY(CHIP_SELECT_1 | value);
+        WriteAY(address - 0x4000, value);
 #endif
         return;
     }
