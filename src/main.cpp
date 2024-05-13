@@ -8,6 +8,7 @@
 
 extern "C" {
 #include "m6502/m6502.h"
+#include "hway/AY_PIO_595.h"
 }
 #include <graphics.h>
 #include "audio.h"
@@ -19,6 +20,7 @@ extern "C" {
 
 #include "gamate/vdp.h"
 #include "emu2149/emu2149.h"
+
 
 #define HOME_DIR "\\GAMATE"
 extern char __flash_binary_end;
@@ -1025,7 +1027,7 @@ void __time_critical_func(render_core)() {
     graphics_set_palette(2,RGB888(0x25, 0x59, 0x55));
     graphics_set_palette(3,RGB888(0x12, 0x42, 0x4C));
 
-
+#ifndef HWAY
     i2s_config = i2s_get_default_config();
     i2s_config.sample_freq = AUDIO_FREQ;
     i2s_config.dma_trans_count = 1 + (AUDIO_FREQ / 60);
@@ -1039,7 +1041,9 @@ void __time_critical_func(render_core)() {
     psg.stereo_mask[0] = 0x01;
     psg.stereo_mask[1] = 0x03;
     psg.stereo_mask[2] = 0x02;
-
+#else
+    InitAY();
+#endif
 
     const auto buffer = (uint8_t *)SCREEN;
     graphics_set_buffer(buffer, 160, 150);
@@ -1070,12 +1074,13 @@ void __time_critical_func(render_core)() {
             last_frame_tick = tick;
         }
 
+#ifndef HWAY
         if (tick >= last_sound_tick + (1000000 / AUDIO_FREQ)) {
             PSG_calc_stereo(&psg, audio_buffer, AUDIO_BUFFER_LENGTH);
             i2s_dma_write(&i2s_config, audio_buffer);
             last_sound_tick = tick;
         }
-
+#endif
         tick = time_us_64();
 
         // tuh_task();
@@ -1158,7 +1163,16 @@ extern "C" void __time_critical_func(Wr6502)(uint16_t address, uint8_t value) {
     }
 
     if (address >= 0x4000 && address <= 0x43FF) {
+#ifndef HWAY
         PSG_writeReg(&psg, address - 0x4000, value);
+#else
+        SendAY(SET_REG_CHIP_1 | address - 0x4000);
+        SendAY(CHIP_SELECT_1 | address - 0x4000);
+
+        SendAY(CHIP_SELECT_1 | value);
+        SendAY(SET_DATA_CHIP_1 | value);
+        SendAY(CHIP_SELECT_1 | value);
+#endif
         return;
     }
 
