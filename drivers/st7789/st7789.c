@@ -253,17 +253,17 @@ void __inline __scratch_y("refresh_lcd") refresh_lcd() {
             uint32_t i = graphics_buffer_width * graphics_buffer_height;
             start_pixels();
             // st7789_dma_pixels(graphics_buffer, i);
-            while (--i) {
-                st7789_lcd_put_pixel(pio, sm, palette[*bitmap++ >> 4]);
-            }
-
-//            for (int y = 0; y < graphics_buffer_height; y++) {
-//                for (int x = 0; x < graphics_buffer_width; x++) {
-//                    st7789_lcd_put_pixel(pio, sm, palette[*bitmap++ >> 4]);
-//                }
-//                for (int x = 0; x < graphics_buffer_shift_x; x++)
-//                    st7789_lcd_put_pixel(pio, sm, 0x00);
+//            while (--i) {
+//                st7789_lcd_put_pixel(pio, sm, palette[*bitmap++]);
 //            }
+
+            for (int y = 0; y < graphics_buffer_height; y++) {
+                for (int x = 0; x < graphics_buffer_width; x++) {
+                    st7789_lcd_put_pixel(pio, sm, palette[*bitmap++]);
+                }
+                for (int x = 0; x < graphics_buffer_shift_x; x++)
+                    st7789_lcd_put_pixel(pio, sm, 0x00);
+            }
 //            while (--i) {
 //               st7789_lcd_put_pixel(pio, sm, palette[*bitmap ]);
 //               st7789_lcd_put_pixel(pio, sm, palette[*bitmap++ ]);

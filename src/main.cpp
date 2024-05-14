@@ -1068,7 +1068,7 @@ void __time_critical_func(render_core)() {
 #if VGA
     graphics_set_offset(0, 0);
 #else
-    graphics_set_offset(40, 20);
+    graphics_set_offset(80, 40);
 #endif
     graphics_set_flashmode(false, false);
     sem_acquire_blocking(&vga_start_semaphore);
