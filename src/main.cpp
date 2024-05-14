@@ -846,9 +846,10 @@ bool toggle_color() {
 const MenuItem menu_items[] = {
         {"Swap AB <> BA: %s",     ARRAY, &settings.swap_ab,  nullptr, 1, {"NO ",       "YES"}},
         {},
-        { "Ghosting pix: %i ", INT, &settings.ghosting, nullptr, 8 },
-        { "Palette: %s ", ARRAY, &settings.palette, nullptr, 1-1, {
+//        { "Ghosting pix: %i ", INT, &settings.ghosting, nullptr, 8 },
+        { "Palette: %s ", ARRAY, &settings.palette, nullptr, count_of(palettes)-1, {
                   "DEFAULT          "
+                , "BLACK & WHITE    "
                 , "AMBER            "
                 , "GREEN            "
                 , "BLUE             "
@@ -906,6 +907,18 @@ const MenuItem menu_items[] = {
     { "Return to game", RETURN }
 };
 #define MENU_ITEMS_NUMBER (sizeof(menu_items) / sizeof (MenuItem))
+
+static inline void update_palette() {
+    for (int i =0; i < 4; i++) {
+        graphics_set_palette(i,RGB888(
+                                     palettes[settings.palette][3*i+0],
+                                     palettes[settings.palette][3*i+1],
+                                     palettes[settings.palette][3*i+2]
+                             )
+        );
+    }
+}
+
 
 void menu() {
     bool exit = false;
@@ -1001,15 +1014,21 @@ void menu() {
     }
 
 #if VGA
-
-        graphics_set_buffer((uint8_t *)SCREEN, 160, 150);
+    if (settings.aspect_ratio) {
+        graphics_set_offset(80, 40);
+        graphics_set_mode(GRAPHICSMODE_ASPECT);
+    } else {
         graphics_set_offset(0, 0);
         graphics_set_mode(GRAPHICSMODE_DEFAULT);
+    }
 #else
     graphics_set_mode(GRAPHICSMODE_DEFAULT);
 #endif
+    update_palette();
     save_config();
 }
+
+
 #define AUDIO_FREQ 44100
 #define AUDIO_BUFFER_LENGTH ((AUDIO_FREQ /60 +1) * 2)
 static int16_t audio_buffer[AUDIO_BUFFER_LENGTH] = { 0 };
@@ -1022,10 +1041,7 @@ void __time_critical_func(render_core)() {
     nespad_begin(clock_get_hz(clk_sys) / 1000, NES_GPIO_CLK, NES_GPIO_DATA, NES_GPIO_LAT);
 
     graphics_init();
-    graphics_set_palette(0,RGB888(0x6B, 0xA6, 0x4A));
-    graphics_set_palette(1,RGB888(0x43, 0x7A, 0x63));
-    graphics_set_palette(2,RGB888(0x25, 0x59, 0x55));
-    graphics_set_palette(3,RGB888(0x12, 0x42, 0x4C));
+    update_palette();
 
 #ifndef HWAY
     i2s_config = i2s_get_default_config();
@@ -1238,14 +1254,18 @@ int __time_critical_func(main)() {
     while (true) {
         graphics_set_mode(TEXTMODE_DEFAULT);
         filebrowser(HOME_DIR, "bin");
-#if VGA
-            graphics_set_buffer((uint8_t *)SCREEN, 160, 150);
-            graphics_set_offset(0, 0);
+        graphics_set_buffer((uint8_t *)SCREEN, 160, 150);
 
+#if VGA
+        if (settings.aspect_ratio) {
+            graphics_set_offset(80, 40);
+            graphics_set_mode(GRAPHICSMODE_ASPECT);
+        } else {
+            graphics_set_offset(0, 0);
             graphics_set_mode(GRAPHICSMODE_DEFAULT);
+        }
 #else
         settings.aspect_ratio = false;
-        graphics_set_buffer((uint8_t *)SCREEN, 240, 200);
         graphics_set_mode(GRAPHICSMODE_DEFAULT);
 #endif
 
