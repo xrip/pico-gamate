@@ -1041,7 +1041,6 @@ void __time_critical_func(render_core)() {
     nespad_begin(clock_get_hz(clk_sys) / 1000, NES_GPIO_CLK, NES_GPIO_DATA, NES_GPIO_LAT);
 
     graphics_init();
-    update_palette();
 
 #ifndef HWAY
     i2s_config = i2s_get_default_config();
@@ -1249,7 +1248,7 @@ int __time_critical_func(main)() {
     }
 
     load_config();
-
+    update_palette();
 
     while (true) {
         graphics_set_mode(TEXTMODE_DEFAULT);
