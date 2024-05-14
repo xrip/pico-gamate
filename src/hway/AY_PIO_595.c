@@ -23,7 +23,7 @@ static void PWM_init_pin(uint pinN) {
     uint slice_num = pwm_gpio_to_slice_num(pinN);
 
     pwm_config c_pwm = pwm_get_default_config();
-    pwm_config_set_clkdiv(&c_pwm, clock_get_hz(clk_sys) / (1.0 * (4433000 / 2)));
+    pwm_config_set_clkdiv(&c_pwm, clock_get_hz(clk_sys) / (1.0 * (4433000 / 1)));
     pwm_config_set_wrap(&c_pwm, 3);//MAX PWM value
     pwm_init(slice_num, &c_pwm, true);
 }
