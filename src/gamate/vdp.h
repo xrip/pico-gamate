@@ -194,13 +194,15 @@ static const uint8_t palettes[][12] = {
                 0xff, 0xff, 0xff,
         },
 };
-
+/*
 void lcdcon_w(uint8_t data);
 void xscroll_w(uint8_t data);
 void yscroll_w(uint8_t data);
 void xpos_w(uint8_t data);
 void ypos_w(uint8_t data);
-uint8_t vram_r();
-void vram_w(uint8_t data);
+
+void vram_w(uint8_t data);*/
 uint32_t screen_update(uint8_t * screen);
+uint8_t vdp_read();
+void vdp_write(uint16_t address, uint8_t value);
 #endif //MYBOY_VDP_H

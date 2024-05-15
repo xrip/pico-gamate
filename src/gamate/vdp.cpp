@@ -25,6 +25,7 @@
     Verify both Window modes act the same as hardware.
 */
 #include <cstdint>
+#include "pico/platform.h"
 
 int m_vramaddress;
 int m_bitplaneselect;
@@ -46,7 +47,8 @@ static inline void increment_vram_address() {
     m_vramaddress &= 0x1fff;
 }
 
-void lcdcon_w(uint8_t data) {
+
+static inline void lcdcon_w(uint8_t data) {
     /*
     NXWS ???E
     E: When set, stops the LCD controller from refreshing the LCD.  This can
@@ -66,7 +68,7 @@ void lcdcon_w(uint8_t data) {
     // setting data & 0x01 is bad
 }
 
-void xscroll_w(uint8_t data) {
+static inline void xscroll_w(uint8_t data) {
     /*
     XXXX XXXX
     X: 8 bit Xscroll value
@@ -74,7 +76,7 @@ void xscroll_w(uint8_t data) {
     m_scrollx = data;
 }
 
-void yscroll_w(uint8_t data) {
+static inline void yscroll_w(uint8_t data) {
     /*
     YYYY YYYY
     Y: 8 bit Yscroll value
@@ -82,7 +84,7 @@ void yscroll_w(uint8_t data) {
     m_scrolly = data;
 }
 
-void xpos_w(uint8_t data) {
+static inline void xpos_w(uint8_t data) {
     /*
     BxxX XXXX
     B: Bitplane. 0 = lower (bitplane 0), 1 = upper (bitplane 1)
@@ -92,7 +94,7 @@ void xpos_w(uint8_t data) {
     m_vramaddress = (m_vramaddress & 0x3fe0) | (data & 0x1f);
 }
 
-void ypos_w(uint8_t data) {
+static inline void ypos_w(uint8_t data) {
     /*
     YYYY YYYY
     Y: 8 upper bits of 13 bit VRAM address.
@@ -100,7 +102,7 @@ void ypos_w(uint8_t data) {
     m_vramaddress = (m_vramaddress & 0x001f) | (data << 5);;
 }
 
-uint8_t vram_r() {
+uint8_t __time_critical_func(vdp_read)() {
     uint16_t address = m_vramaddress << 1;
 
     if (m_bitplaneselect)
@@ -113,7 +115,7 @@ uint8_t vram_r() {
     return ret;
 }
 
-void vram_w(uint8_t data) {
+static inline void vram_w(uint8_t data) {
     uint16_t address = m_vramaddress << 1;
 
     if (m_bitplaneselect)
@@ -122,6 +124,23 @@ void vram_w(uint8_t data) {
     VRAM[address] = data;
 
     increment_vram_address();
+}
+
+void __time_critical_func(vdp_write)(uint16_t address, uint8_t value) {
+    switch (address & 7) {
+        case 1:
+            return lcdcon_w(value);
+        case 2:
+            return xscroll_w(value);
+        case 3:
+            return yscroll_w(value);
+        case 4:
+            return xpos_w(value);
+        case 5:
+            return ypos_w(value);
+        case 7:
+            return vram_w(value);
+    }
 }
 
 static inline void get_real_x_and_y(int &ret_x, int &ret_y, int scanline) {
@@ -206,16 +225,7 @@ static inline int get_pixel_from_vram(int x, int y) {
         return plane1 | (plane0 << 1); // does any game use this?
 }
 
-#define RGB888(r, g, b) ((((r) >> 3) << 11) | (((g) >> 2) << 5) | ((b) >> 3))
-// this palette is taken from megaduck, from videos it looks similar
-static const unsigned short palette_gamate[] = {
-        RGB888(0x6B, 0xA6, 0x4A),
-        RGB888(0x43, 0x7A, 0x63),
-        RGB888(0x25, 0x59, 0x55),
-        RGB888(0x12, 0x42, 0x4C)
-};
-
-void screen_update(uint8_t *screen) {
+void __time_critical_func(screen_update)(uint8_t *screen) {
     int real_x, real_y;
     for (int scanline = 0; scanline < 150; scanline++) {
         get_real_x_and_y(real_x, real_y, scanline);

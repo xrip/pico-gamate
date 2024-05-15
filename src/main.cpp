@@ -1135,7 +1135,7 @@ extern "C" uint8_t __time_critical_func(Rd6502)(uint16_t address) {
 
     if (address >= 0x5000 && address <= 0x53FF) {
         if ((address & 7) == 6)
-            return vram_r();
+            return vdp_read();
         exit(1);
     }
 
@@ -1187,21 +1187,7 @@ extern "C" void __time_critical_func(Wr6502)(uint16_t address, uint8_t value) {
     }
 
     if (address >= 0x5000 && address <= 0x53FF) {
-        switch (address & 7) {
-            case 1:
-                return lcdcon_w(value);
-            case 2:
-                return xscroll_w(value);
-            case 3:
-                return yscroll_w(value);
-            case 4:
-                return xpos_w(value);
-            case 5:
-                return ypos_w(value);
-            case 7:
-                return vram_w(value);
-        }
-        exit(-1);
+        return vdp_write(address, value);
     }
 
     if (address >= 0x5900 && address <= 0x59FF) {
