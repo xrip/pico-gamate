@@ -1,3 +1,4 @@
+#include "pico/platform.h"
 #pragma GCC optimize("Ofast")
 /** M65C02: portable 65C02 emulator **************************/
 /**                                                         **/
@@ -250,7 +251,7 @@ void Int6502(M6502 *R, byte Type)
 /** returns INT_QUIT. It will return the PC at which        **/
 /** emulation stopped, and current register values in R.    **/
 /*************************************************************/
-word Run6502(M6502 *R)
+word __time_critical_func(Run6502)(M6502 *R)
 {
     register pair J, K;
     register byte I;
