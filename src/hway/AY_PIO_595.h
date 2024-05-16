@@ -1,4 +1,7 @@
 #pragma once
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include "hardware/pio.h"
 
@@ -22,5 +25,10 @@
 
 
 void InitAY();
+
 void SendAY(uint16_t data);
+
 #define WriteAY(address, value) SendAY(SET_REG_CHIP_1 | address); SendAY(CHIP_SELECT_1 | address); SendAY(CHIP_SELECT_1 | value); SendAY(SET_DATA_CHIP_1 | value); SendAY(CHIP_SELECT_1 | value);
+#ifdef __cplusplus
+}
+#endif

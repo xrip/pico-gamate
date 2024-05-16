@@ -466,7 +466,7 @@ PSG_writeReg (PSG * psg, uint32_t reg, uint32_t val)
 {
   int c;
 
-  if (reg > 15) return;
+//  if (reg > 15) return;
 
   psg->reg[reg] = (uint8_t) (val & 0xff);
   switch (reg)

@@ -22,7 +22,6 @@
 
 #include "m6502.h"
 #include "tables.h"
-
 #define Op6502(A) Rd6502(A)
 
 /* "Izp" added by uso. */
