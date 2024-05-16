@@ -755,7 +755,7 @@ void menu() {
         graphics_set_offset(80, 40);
         graphics_set_mode(GRAPHICSMODE_ASPECT);
     } else {
-        graphics_set_offset(0, 0);
+        graphics_set_offset(0, 4);
         graphics_set_mode(GRAPHICSMODE_DEFAULT);
     }
 #else
@@ -982,7 +982,7 @@ int __time_critical_func(main)() {
             graphics_set_offset(80, 40);
             graphics_set_mode(GRAPHICSMODE_ASPECT);
         } else {
-            graphics_set_offset(0, 0);
+            graphics_set_offset(0, 4);
             graphics_set_mode(GRAPHICSMODE_DEFAULT);
         }
 #else

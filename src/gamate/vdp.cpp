@@ -36,7 +36,7 @@ int m_swapplanes;
 int m_incrementdir;
 int m_displayblank;
 
-uint8_t VRAM[16384];
+alignas(4) uint8_t VRAM[16384];
 
 static inline void increment_vram_address() {
     if (m_incrementdir)
