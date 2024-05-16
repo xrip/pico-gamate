@@ -1003,6 +1003,7 @@ int __time_critical_func(main)() {
 
         while (!reboot) {
             Run6502(&cpu); Int6502(&cpu, INT_IRQ); // There's a timer that fires an IRQ
+            cpu.IPeriod = 32768;
             Run6502(&cpu); Int6502(&cpu, INT_IRQ); // every 32768 clocks (approx. 135.28Hz).
 
             cpu.IPeriod = 7364;
