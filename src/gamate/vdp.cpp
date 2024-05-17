@@ -25,6 +25,7 @@
     Verify both Window modes act the same as hardware.
 */
 #include <cstdint>
+#include <cstring>
 #include "pico/platform.h"
 
 static int m_vramaddress;
@@ -228,11 +229,16 @@ static inline int get_pixel_from_vram(int x, int y) {
 
 void __time_critical_func(screen_update)(uint8_t *screen) {
     int real_x, real_y;
+
+    if (m_displayblank) {
+        memset(screen, 0x00, 160*150);
+        return;
+    }
     for (int scanline = 0; scanline < 150; scanline++) {
         get_real_x_and_y(real_x, real_y, scanline);
 
         for (int x = 0; x < 160; x++)
-            screen[scanline * 160 + x] = m_displayblank ? 0 : get_pixel_from_vram(x + real_x, real_y);
+            screen[scanline * 160 + x] = get_pixel_from_vram(x + real_x, real_y);
     }
 }
 
