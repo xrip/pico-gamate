@@ -931,13 +931,13 @@ extern "C" void __time_critical_func(Wr6502)(uint16_t address, uint8_t value) {
     }
 
     // 4in1 mapper switch first 16kb
-    if (address >= 0x8000 && address <= 0x9FFF) {
+    if (address == 0x8000) {
         bank0_offset = 0x4000 * value;
         return;
     }
 
     // regular mapper switch second 16kb
-    if (address >= 0xC000 && address <= 0xDFFF) {
+    if (address == 0xC000) {
         bank1_offset = 0x4000 * value;
         return;
     }
@@ -1002,9 +1002,9 @@ int __time_critical_func(main)() {
         cpu.IPeriod = 32768;
 
         while (!reboot) {
-            Run6502(&cpu); Int6502(&cpu, INT_IRQ); // There's a timer that fires an IRQ
-            cpu.IPeriod = 32768;
-            Run6502(&cpu); Int6502(&cpu, INT_IRQ); // every 32768 clocks (approx. 135.28Hz).
+            Run6502(&cpu); Int6502(&cpu, INT_IRQ); // There's a timer that fires
+            cpu.IPeriod = 32768;                   // an IRQ every
+            Run6502(&cpu); Int6502(&cpu, INT_IRQ); // 32768 clocks (approx. 135.28Hz).
 
             cpu.IPeriod = 7364;
             Run6502(&cpu);
