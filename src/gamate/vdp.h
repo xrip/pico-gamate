@@ -205,4 +205,7 @@ void vram_w(uint8_t data);*/
 uint32_t screen_update(uint8_t * screen);
 uint8_t vdp_read();
 void vdp_write(uint16_t address, uint8_t value);
+
+void vdp_savestate(int regs[8]);
+void vdp_loadstate(const int  * regs);
 #endif //MYBOY_VDP_H

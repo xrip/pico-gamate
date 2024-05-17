@@ -23,10 +23,19 @@
 extern char __flash_binary_end;
 #define FLASH_TARGET_OFFSET (((((uintptr_t)&__flash_binary_end - XIP_BASE) / FLASH_SECTOR_SIZE) + 4) * FLASH_SECTOR_SIZE)
 static const uintptr_t rom = XIP_BASE + FLASH_TARGET_OFFSET;
-PSG psg;
+
 
 uint8_t * ROM = (uint8_t *) rom;
+
 alignas(4) uint8_t RAM[1024] = { 0xFF };
+extern uint8_t VRAM[16384];
+
+static M6502 cpu;
+static PSG psg;
+
+static int bank0_offset = 0;
+static int bank1_offset = 0x4000;
+static uint8_t protection = 0;
 
 char __uninitialized_ram(filename[256]);
 static uint32_t __uninitialized_ram(rom_size) = 0;
@@ -477,11 +486,9 @@ bool overclock() {
 }
 
 bool save() {
+    int tmp_data[8];
     char pathname[255];
-#if 0
-    const size_t size = supervision_save_state_buf_size();
-    auto * data = (uint8_t *)(malloc(size));
-
+#if 1
     if (settings.save_slot > 0) {
         sprintf(pathname, "%s\\%s_%d.save",  HOME_DIR, filename, settings.save_slot);
     }
@@ -494,19 +501,26 @@ bool save() {
     fr = f_open(&fd, pathname, FA_CREATE_ALWAYS | FA_WRITE);
     UINT bytes_writen;
 
-    supervision_save_state_buf((uint8*)data, (uint32)size);
-    f_write(&fd, data, size, &bytes_writen);
+    f_write(&fd, RAM, sizeof(RAM), &bytes_writen);
+    f_write(&fd, VRAM, sizeof(VRAM), &bytes_writen);
+
+    f_write(&fd, &cpu, sizeof(cpu), &bytes_writen);
+
+    vdp_savestate(tmp_data);
+    f_write(&fd, tmp_data, sizeof(tmp_data), &bytes_writen);
+
+    f_write(&fd, &bank0_offset, 4, &bytes_writen);
+    f_write(&fd, &bank1_offset, 4, &bytes_writen);
+
     f_close(&fd);
-    free(data);
 #endif
     return true;
 }
 
 bool load() {
+    int tmp_data[8];
     char pathname[255];
-#if 0
-    const size_t size = supervision_save_state_buf_size();
-    auto * data = (uint8_t *)(malloc(size));
+#if 1
 
     if (settings.save_slot > 0) {
         sprintf(pathname, "%s\\%s_%d.save",  HOME_DIR, filename, settings.save_slot);
@@ -520,11 +534,21 @@ bool load() {
     fr = f_open(&fd, pathname, FA_READ);
     UINT bytes_read;
 
-    f_read(&fd, data, size, &bytes_read);
-    supervision_load_state_buf((uint8*)data, (uint32)size);
+    f_read(&fd, RAM, sizeof(RAM), &bytes_read);
+    f_read(&fd, VRAM, sizeof(VRAM), &bytes_read);
+
+    f_read(&fd, &cpu, sizeof(cpu), &bytes_read);
+
+    f_read(&fd, tmp_data, sizeof(tmp_data), &bytes_read);
+
+    f_read(&fd, &bank0_offset, 4, &bytes_read);
+    f_read(&fd, &bank1_offset, 4, &bytes_read);
+
+
+    vdp_loadstate(tmp_data);
+
     f_close(&fd);
 
-    free(data);
 #endif
     return true;
 }
@@ -846,12 +870,6 @@ void __time_critical_func(render_core)() {
 int frame, frame_cnt = 0;
 int frame_timer_start = 0;
 
-
-static M6502 cpu;
-static int bank0_offset = 0;
-static int bank1_offset = 0x4000;
-static uint8_t protection = 0;
-
 extern "C" uint8_t __time_critical_func(Rd6502)(uint16_t address) {
     if (address <= 0x1FFF) {
         return RAM[address & 1023];
@@ -950,7 +968,6 @@ byte Loop6502(M6502 *R) {
     return INT_QUIT;
 }
 
-extern uint8_t VRAM[16384];
 int __time_critical_func(main)() {
     overclock();
 

@@ -27,14 +27,15 @@
 #include <cstdint>
 #include "pico/platform.h"
 
-int m_vramaddress;
-int m_bitplaneselect;
-int m_scrollx;
-int m_scrolly;
-int m_window;
-int m_swapplanes;
-int m_incrementdir;
-int m_displayblank;
+static int m_vramaddress;
+static int m_bitplaneselect;
+static int m_scrollx;
+static int m_scrolly;
+static int m_window;
+static int m_swapplanes;
+static int m_incrementdir;
+static int m_displayblank;
+
 
 alignas(4) uint8_t VRAM[16384];
 
@@ -233,4 +234,26 @@ void __time_critical_func(screen_update)(uint8_t *screen) {
         for (int x = 0; x < 160; x++)
             screen[scanline * 160 + x] = m_displayblank ? 0 : get_pixel_from_vram(x + real_x, real_y);
     }
+}
+
+void vdp_savestate(int regs[8]) {
+    regs[0] = m_vramaddress;
+    regs[1] = m_bitplaneselect;
+    regs[2] = m_scrollx;
+    regs[3] = m_scrolly;
+    regs[4] = m_window;
+    regs[5] = m_swapplanes;
+    regs[6] = m_incrementdir;
+    regs[7] = m_displayblank;
+}
+
+void vdp_loadstate(const int  * regs) {
+    m_vramaddress = regs[0];
+    m_bitplaneselect = regs[1];
+    m_scrollx = regs[2];
+    m_scrolly = regs[3];
+    m_window = regs[4];
+    m_swapplanes = regs[5];
+    m_incrementdir = regs[6];
+    m_displayblank = regs[7];
 }
