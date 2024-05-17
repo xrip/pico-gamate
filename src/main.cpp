@@ -876,7 +876,7 @@ extern "C" uint8_t __time_critical_func(Rd6502)(uint16_t address) {
     }
 
     if (address >= 0x5A00 && address <= 0x5AFF) {
-        return 0b11;
+        return 0x5B;
     }
 
     // INPUT
