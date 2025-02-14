@@ -76,7 +76,7 @@ struct input_bits_t {
     bool down: true;
 };
 
-static input_bits_t keyboard_bits = { false, false, false, false, false, false, false, false };
+static input_bits_t keyboard = { false, false, false, false, false, false, false, false };
 static input_bits_t gamepad1_bits = { false, false, false, false, false, false, false, false };
 static input_bits_t gamepad2_bits = { false, false, false, false, false, false, false, false };
 
@@ -88,30 +88,30 @@ void nespad_tick() {
     uint8_t controls_state = 0;
 
     if (settings.swap_ab) {
-        gamepad1_bits.b = (nespad_state & DPAD_A) != 0;
-        gamepad1_bits.a = (nespad_state & DPAD_B) != 0;
+        gamepad1_bits.b = keyboard.a || (nespad_state & DPAD_A) != 0;
+        gamepad1_bits.a = keyboard.b || (nespad_state & DPAD_B) != 0;
     } else {
-        gamepad1_bits.a = (nespad_state & DPAD_A) != 0;
-        gamepad1_bits.b = (nespad_state & DPAD_B) != 0;
+        gamepad1_bits.a = keyboard.a || (nespad_state & DPAD_A) != 0;
+        gamepad1_bits.b = keyboard.b || (nespad_state & DPAD_B) != 0;
 
     }
 
-    gamepad1_bits.select = (nespad_state & DPAD_SELECT) != 0;
-    gamepad1_bits.start = (nespad_state & DPAD_START) != 0;
-    gamepad1_bits.up = (nespad_state & DPAD_UP) != 0;
-    gamepad1_bits.down = (nespad_state & DPAD_DOWN) != 0;
-    gamepad1_bits.left = (nespad_state & DPAD_LEFT) != 0;
-    gamepad1_bits.right = (nespad_state & DPAD_RIGHT) != 0;
+    gamepad1_bits.select = keyboard.select || (nespad_state & DPAD_SELECT) != 0;
+    gamepad1_bits.start = keyboard.start || (nespad_state & DPAD_START) != 0;
+    gamepad1_bits.up = keyboard.up || (nespad_state & DPAD_UP) != 0;
+    gamepad1_bits.down = keyboard.down || (nespad_state & DPAD_DOWN) != 0;
+    gamepad1_bits.left = keyboard.left || (nespad_state & DPAD_LEFT) != 0;
+    gamepad1_bits.right = keyboard.right || (nespad_state & DPAD_RIGHT) != 0;
 
 
-    if (gamepad1_bits.up || keyboard_bits.up ) controls_state|=0x08;
-    if (gamepad1_bits.down  || keyboard_bits.down ) controls_state|=0x04;
-    if (gamepad1_bits.left  || keyboard_bits.left ) controls_state|=0x02;
-    if (gamepad1_bits.right  || keyboard_bits.right ) controls_state|=0x01;
-    if (gamepad1_bits.a  || keyboard_bits.a ) controls_state|=0x20;
-    if (gamepad1_bits.b  || keyboard_bits.b ) controls_state|=0x10;
-    if (gamepad1_bits.start  || keyboard_bits.start ) controls_state|=0x80;
-    if (gamepad1_bits.select  || keyboard_bits.select ) controls_state|=0x40;
+    if (gamepad1_bits.up) controls_state|=0x08;
+    if (gamepad1_bits.down) controls_state|=0x04;
+    if (gamepad1_bits.left) controls_state|=0x02;
+    if (gamepad1_bits.right) controls_state|=0x01;
+    if (gamepad1_bits.a) controls_state|=0x20;
+    if (gamepad1_bits.b) controls_state|=0x10;
+    if (gamepad1_bits.start) controls_state|=0x80;
+    if (gamepad1_bits.select) controls_state|=0x40;
     // if (gamepad1_bits.down) smsSystem|=INPUT_SOFT_RESET;
     // if (gamepad1_bits.down) smsSystem|=INPUT_HARD_RESET;
 }
@@ -132,16 +132,21 @@ __not_in_flash_func(process_kbd_report)(hid_keyboard_report_t const* report, hid
         printf("%2.2X", i);
     printf("\r\n");
      */
-    keyboard_bits.start = isInReport(report, HID_KEY_ENTER);
-    keyboard_bits.select = isInReport(report, HID_KEY_BACKSPACE) || isInReport(report, HID_KEY_ESCAPE);
+    keyboard.start = isInReport(report, HID_KEY_ENTER) || isInReport(report, HID_KEY_KEYPAD_ENTER);
+    keyboard.select = isInReport(report, HID_KEY_BACKSPACE) || isInReport(report, HID_KEY_ESCAPE) || isInReport(report, HID_KEY_KEYPAD_ADD);
 
-    keyboard_bits.a = isInReport(report, HID_KEY_Z) || isInReport(report, HID_KEY_O);
-    keyboard_bits.b = isInReport(report, HID_KEY_X) || isInReport(report, HID_KEY_P);
+    keyboard.a = isInReport(report, HID_KEY_Z) || isInReport(report, HID_KEY_O) || isInReport(report, HID_KEY_KEYPAD_0);
+    keyboard.b = isInReport(report, HID_KEY_X) || isInReport(report, HID_KEY_P) || isInReport(report, HID_KEY_KEYPAD_DECIMAL);
 
-    keyboard_bits.up = isInReport(report, HID_KEY_ARROW_UP) || isInReport(report, HID_KEY_W);
-    keyboard_bits.down = isInReport(report, HID_KEY_ARROW_DOWN) || isInReport(report, HID_KEY_S);
-    keyboard_bits.left = isInReport(report, HID_KEY_ARROW_LEFT) || isInReport(report, HID_KEY_A);
-    keyboard_bits.right = isInReport(report, HID_KEY_ARROW_RIGHT)  || isInReport(report, HID_KEY_D);
+    bool b7 = isInReport(report, HID_KEY_KEYPAD_7);
+    bool b9 = isInReport(report, HID_KEY_KEYPAD_9);
+    bool b1 = isInReport(report, HID_KEY_KEYPAD_1);
+    bool b3 = isInReport(report, HID_KEY_KEYPAD_3);
+
+    keyboard.up = b7 || b9 || isInReport(report, HID_KEY_ARROW_UP) || isInReport(report, HID_KEY_W) || isInReport(report, HID_KEY_KEYPAD_8);
+    keyboard.down = b1 || b3 || isInReport(report, HID_KEY_ARROW_DOWN) || isInReport(report, HID_KEY_S) || isInReport(report, HID_KEY_KEYPAD_2) || isInReport(report, HID_KEY_KEYPAD_5);
+    keyboard.left = b7 || b1 || isInReport(report, HID_KEY_ARROW_LEFT) || isInReport(report, HID_KEY_A) || isInReport(report, HID_KEY_KEYPAD_4);
+    keyboard.right = b9 || b3 || isInReport(report, HID_KEY_ARROW_RIGHT)  || isInReport(report, HID_KEY_D) || isInReport(report, HID_KEY_KEYPAD_6);
     //-------------------------------------------------------------------------
 }
 
@@ -344,15 +349,15 @@ void filebrowser(const char pathname[256], const char executables[11]) {
             sleep_ms(100);
 
             if (!debounce) {
-                debounce = !(nespad_state & DPAD_START || keyboard_bits.start);
+                debounce = !(gamepad1_bits.start);
             }
 
             // ESCAPE
-            if (nespad_state & DPAD_SELECT || keyboard_bits.select) {
+            if (gamepad1_bits.select) {
                 return;
             }
 
-            if (nespad_state & DPAD_DOWN || keyboard_bits.down) {
+            if (gamepad1_bits.down) {
                 if (offset + (current_item + 1) < total_files) {
                     if (current_item + 1 < per_page) {
                         current_item++;
@@ -363,7 +368,7 @@ void filebrowser(const char pathname[256], const char executables[11]) {
                 }
             }
 
-            if (nespad_state & DPAD_UP || keyboard_bits.up) {
+            if (gamepad1_bits.up) {
                 if (current_item > 0) {
                     current_item--;
                 }
@@ -372,14 +377,14 @@ void filebrowser(const char pathname[256], const char executables[11]) {
                 }
             }
 
-            if (nespad_state & DPAD_RIGHT || keyboard_bits.right) {
+            if (gamepad1_bits.right) {
                 offset += per_page;
                 if (offset + (current_item + 1) > total_files) {
                     offset = total_files - (current_item + 1);
                 }
             }
 
-            if (nespad_state & DPAD_LEFT || keyboard_bits.left) {
+            if (gamepad1_bits.left) {
                 if (offset > per_page) {
                     offset -= per_page;
                 }
@@ -389,7 +394,7 @@ void filebrowser(const char pathname[256], const char executables[11]) {
                 }
             }
 
-            if (debounce && (nespad_state & DPAD_START || keyboard_bits.start)) {
+            if (debounce && gamepad1_bits.start) {
                 auto file_at_cursor = fileItems[offset + current_item];
 
                 if (file_at_cursor.is_directory) {
@@ -709,21 +714,21 @@ void menu() {
                     case ARRAY:
                         if (item->max_value != 0) {
                             auto* value = (uint8_t *)item->value;
-                            if ((gamepad1_bits.right || keyboard_bits.right) && *value < item->max_value) {
+                            if (gamepad1_bits.right && *value < item->max_value) {
                                 (*value)++;
                             }
-                            if ((gamepad1_bits.left || keyboard_bits.left) && *value > 0) {
+                            if (gamepad1_bits.left && *value > 0) {
                                 (*value)--;
                             }
                         }
                         break;
                     case RETURN:
-                        if (gamepad1_bits.start || keyboard_bits.start)
+                        if (gamepad1_bits.start)
                             exit = true;
                         break;
 
                     case ROM_SELECT:
-                        if (gamepad1_bits.start || keyboard_bits.start) {
+                        if (gamepad1_bits.start) {
                             reboot = true;
                             return;
                         }
@@ -732,7 +737,7 @@ void menu() {
                         break;
                 }
 
-                if (nullptr != item->callback && (gamepad1_bits.start || keyboard_bits.start)) {
+                if (nullptr != item->callback && gamepad1_bits.start) {
                     exit = item->callback();
                 }
             }
@@ -755,16 +760,16 @@ void menu() {
             draw_text(result, x, y, color, bg_color);
         }
 
-        if (gamepad1_bits.b || (keyboard_bits.select && !keyboard_bits.start))
+        if (gamepad1_bits.b || (gamepad1_bits.select && !gamepad1_bits.start))
             exit = true;
 
-        if (gamepad1_bits.down || keyboard_bits.down) {
+        if (gamepad1_bits.down) {
             current_item = (current_item + 1) % MENU_ITEMS_NUMBER;
 
             if (menu_items[current_item].type == NONE)
                 current_item++;
         }
-        if (gamepad1_bits.up || keyboard_bits.up) {
+        if (gamepad1_bits.up) {
             current_item = (current_item - 1 + MENU_ITEMS_NUMBER) % MENU_ITEMS_NUMBER;
 
             if (menu_items[current_item].type == NONE)
@@ -1029,7 +1034,7 @@ int __time_critical_func(main)() {
 
             cpu.IPeriod = 32768 - 7364;
 
-            if ((gamepad1_bits.start && gamepad1_bits.select) || (keyboard_bits.start && keyboard_bits.select)) {
+            if (gamepad1_bits.start && gamepad1_bits.select) {
                 menu();
             }
 
