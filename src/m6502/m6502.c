@@ -1,4 +1,4 @@
-#include "pico/platform.h"
+#include "pico.h"
 #pragma GCC optimize("Ofast")
 /** M65C02: portable 65C02 emulator **************************/
 /**                                                         **/

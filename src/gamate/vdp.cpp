@@ -26,7 +26,7 @@
 */
 #include <cstdint>
 #include <cstring>
-#include "pico/platform.h"
+#include "pico.h"
 
 static int m_vramaddress;
 static int m_bitplaneselect;
