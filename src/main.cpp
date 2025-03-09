@@ -180,10 +180,9 @@ __not_in_flash_func(process_kbd_report)(hid_keyboard_report_t const* report, hid
 
 Ps2Kbd_Mrmltr ps2kbd(
     pio1,
-    0,
-    process_kbd_report);
-
-
+    PS2KBD_GPIO_FIRST,
+    process_kbd_report
+);
 
 
 uint_fast32_t frames = 0;
@@ -513,7 +512,7 @@ uint16_t frequencies[] = { 378, 396, 404, 408, 412, 416, 420, 424, 432 };
 uint8_t frequency_index = 0;
 
 bool overclock() {
-    #if !PICO_RP2040
+#if !PICO_RP2040
     volatile uint32_t *qmi_m0_timing=(uint32_t *)0x400d000c;
     vreg_disable_voltage_limit();
     vreg_set_voltage(VREG_VOLTAGE_1_60);
