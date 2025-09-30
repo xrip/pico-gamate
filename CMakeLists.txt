@@ -4,9 +4,9 @@ if(WIN32)
 else()
     set(USERHOME $ENV{HOME})
 endif()
-set(sdkVersion 2.1.1)
+set(sdkVersion 2.2.0)
 set(toolchainVersion 14_2_Rel1)
-set(picotoolVersion 2.1.1)
+set(picotoolVersion 2.2.0)
 set(picoVscode ${USERHOME}/.pico-sdk/cmake/pico-vscode.cmake)
 if (EXISTS ${picoVscode})
     include(${picoVscode})
@@ -35,6 +35,8 @@ option(SOFTTV "Enable TV soft composite output" OFF)
 if( ${PICO_PLATFORM} MATCHES "rp2350" )
 option(m1p2launcher "Enable m1p2-launcher support" OFF)
 endif()
+
+set(PROG_VERSION "3.0.4")
 
 #set(m1p2launcher ON)
 #set(I2S ON)
@@ -108,7 +110,7 @@ if ( ${PICO_BOARD} MATCHES "murmulator2")
 else()
 	pico_set_program_name(gamate "Bit Corp. Gamate emulator by xrip for MURMULATOR 1.x board")
 endif()
-pico_set_program_version(gamate "3.0.3")
+pico_set_program_version(gamate "${PROG_VERSION}")
 
 target_include_directories(${PROJECT_NAME} PRIVATE src)
 
@@ -154,7 +156,7 @@ ELSE()
 	target_compile_definitions(${PROJECT_NAME} PRIVATE HWAY)
 	SET(BUILD_NAME "${BUILD_NAME}-AY-3-8910")
 ENDIF()
-set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME "${BUILD_NAME}")
+set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME "${BUILD_NAME}-${PROG_VERSION}")
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
 		graphics

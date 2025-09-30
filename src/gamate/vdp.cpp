@@ -209,7 +209,8 @@ static inline void get_real_x_and_y(int &ret_x, int &ret_y, int scanline) {
     }
 }
 
-static inline int get_pixel_from_vram(int x, int y) {
+// 4 gradients 0b000000xy converted to 0bx000y000
+static inline uint8_t get_pixel_from_vram(int x, int y) {
     x &= 0xff;
     y &= 0xff;
 
@@ -218,27 +219,40 @@ static inline int get_pixel_from_vram(int x, int y) {
 
     int address = ((y * 0x20) + x_byte) << 1;
 
-    int plane0 = (VRAM[address] >> (7 - x)) & 0x1;
-    int plane1 = (VRAM[address + 1] >> (7 - x)) & 0x1;
+    uint8_t plane0 = (VRAM[address] >> (7 - x)) & 0x1;
+    uint8_t plane1 = (VRAM[address + 1] >> (7 - x)) & 0x1;
 
     if (!m_swapplanes)
-        return plane0 | (plane1 << 1);
+        return (plane0 << 3) | (plane1 << 7);
     else
-        return plane1 | (plane0 << 1); // does any game use this?
+        return (plane1 << 3) | (plane0 << 7); // does any game use this?
 }
 
-void __time_critical_func(screen_update)(uint8_t *screen) {
+static uint8_t rich_screen[150*160] = { 0 };
+void __time_critical_func(screen_update)(uint8_t *screen, uint8_t ghosting) {
     int real_x, real_y;
-
     if (m_displayblank) {
-        memset(screen, 0x00, 160*150);
+        uint8_t* p = rich_screen;
+        for (int i = 0; i < sizeof(rich_screen); ++i) {
+            *p++ &= 0b01110111;
+        }
         return;
     }
+    // LCD flow: 250 мс (15 frames) rise, 200 мс (12 frames) fall
+    uint8_t ghost_speed = ghosting < 7 ? (7 - ghosting) : 1;
     for (int scanline = 0; scanline < 150; scanline++) {
         get_real_x_and_y(real_x, real_y, scanline);
-
-        for (int x = 0; x < 160; x++)
-            screen[scanline * 160 + x] = get_pixel_from_vram(x + real_x, real_y);
+        uint8_t* p = rich_screen + scanline * 160;
+        for (int x = 0; x < 160; ++x, ++p) {
+            *p = get_pixel_from_vram(x + real_x, real_y) | (*p >> ghost_speed);
+        }
+    }
+    uint8_t* p_in = rich_screen;
+    uint8_t* p_out = screen;
+    for (int i = 0; i < sizeof(rich_screen); ++i) {
+        uint8_t in = *p_in++;
+        // back to output style format -> 0bxy
+        *p_out++ = ((in >> 4) ? 0b10 : 0) | ((in & 0b1111) ? 0b01 : 0);
     }
 }
 

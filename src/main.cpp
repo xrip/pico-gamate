@@ -63,7 +63,7 @@ SETTINGS settings = {
         .version = 1,
         .swap_ab = false,
         .aspect_ratio = false,
-        .ghosting = 8,
+        .ghosting = 4,
         .palette = 0,
         .save_slot = 0,
 };
@@ -254,43 +254,34 @@ bool filebrowser_loadfile(const char pathname[256]) {
         return false;
     }
 
-
     draw_text("Loading...", window_x + 1, window_y + 2, 10, 1);
     sleep_ms(500);
-
 
     multicore_lockout_start_blocking();
     auto flash_target_offset = FLASH_TARGET_OFFSET;
     const uint32_t ints = save_and_disable_interrupts();
     flash_range_erase(flash_target_offset, fileinfo.fsize);
     restore_interrupts(ints);
-
     if (FR_OK == f_open(&file, pathname, FA_READ)) {
         uint8_t buffer[FLASH_PAGE_SIZE];
-
         do {
             f_read(&file, &buffer, FLASH_PAGE_SIZE, &bytes_read);
-
             if (bytes_read) {
                 const uint32_t ints = save_and_disable_interrupts();
                 flash_range_program(flash_target_offset, buffer, FLASH_PAGE_SIZE);
                 restore_interrupts(ints);
-
                 gpio_put(PICO_DEFAULT_LED_PIN, flash_target_offset >> 13 & 1);
-
                 flash_target_offset += FLASH_PAGE_SIZE;
             }
         }
         while (bytes_read != 0);
-
         gpio_put(PICO_DEFAULT_LED_PIN, true);
     }
     f_close(&file);
     multicore_lockout_end_blocking();
     // restore_interrupts(ints);
-
+    gpio_put(PICO_DEFAULT_LED_PIN, false);
     strcpy(filename, fileinfo.fname);
-
     return true;
 }
 
@@ -650,7 +641,7 @@ bool toggle_color() {
 const MenuItem menu_items[] = {
         {"Swap AB <> BA: %s",     ARRAY, &settings.swap_ab,  nullptr, 1, {"NO ",       "YES"}},
         {},
-//        { "Ghosting pix: %i ", INT, &settings.ghosting, nullptr, 8 },
+        { "Ghosting pix: %i ", INT, &settings.ghosting, nullptr, 6 }, // 6 == shift 1, 5->2, 4->3, 3->4, 2->5, 1->6, 0->7
         { "Palette: %s ", ARRAY, &settings.palette, nullptr, count_of(palettes)-1, {
                   "DEFAULT          "
                 , "BLACK & WHITE    "
@@ -1077,7 +1068,7 @@ int __time_critical_func(main)() {
 
             cpu.IPeriod = 7364;
             Run6502(&cpu);
-            screen_update((uint8_t *)SCREEN); // It takes exactly 72900 clocks at 4.433MHz per frame.
+            screen_update((uint8_t *)SCREEN, settings.ghosting); // It takes exactly 72900 clocks at 4.433MHz per frame.
 
             cpu.IPeriod = 32768 - 7364;
 
