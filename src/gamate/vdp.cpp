@@ -236,7 +236,7 @@ void __time_critical_func(screen_update)(uint8_t *screen, uint8_t ghosting) {
         memset(expected_screen, 0, sizeof(expected_screen));
         goto convert;
     }
-    // LCD flow: 250 мс (15 frames) rise, 200 мс (12 frames) fall
+    // LCD flow: 250 ms (15 frames) rise, 200 ms (12 frames) fall
     for (int scanline = 0; scanline < 150; scanline++) {
         get_real_x_and_y(real_x, real_y, scanline);
         uint8_t* p = expected_screen + scanline * 160;
