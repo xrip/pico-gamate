@@ -14,10 +14,10 @@ endif()
 # ====================================================================================
 cmake_minimum_required(VERSION 3.13)
 set(PICO_BOARD_HEADER_DIRS ${CMAKE_CURRENT_LIST_DIR}/boards )
-#set(PICO_PLATFORM "rp2350" CACHE STRING "Chip type")
-set(PICO_PLATFORM "rp2040" CACHE STRING "Chip type")
-set(PICO_BOARD "murmulator" CACHE STRING "Board type")
-#set(PICO_BOARD "murmulator2" CACHE STRING "Board type")
+set(PICO_PLATFORM "rp2350" CACHE STRING "Chip type")
+#set(PICO_PLATFORM "rp2040" CACHE STRING "Chip type")
+#set(PICO_BOARD "murmulator" CACHE STRING "Board type")
+set(PICO_BOARD "murmulator2" CACHE STRING "Board type")
 include(pico_sdk_import.cmake)
 
 project(gamate C CXX ASM)
@@ -38,13 +38,15 @@ endif()
 
 set(PROG_VERSION "3.0.4")
 
-#set(m1p2launcher ON)
-#set(I2S ON)
+set(m1p2launcher ON)
 #set(TFT ON)
 #set(ILI9341 ON)
-#set(HDMI ON)
+set(HDMI ON)
 #set(TV ON)
 #set(SOFTTV ON)
+
+set(I2S ON)
+#set(HWAY ON)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
@@ -156,7 +158,15 @@ ELSE()
 	target_compile_definitions(${PROJECT_NAME} PRIVATE HWAY)
 	SET(BUILD_NAME "${BUILD_NAME}-AY-3-8910")
 ENDIF()
-set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME "${BUILD_NAME}-${PROG_VERSION}")
+
+IF(m1p2launcher)
+    SET(BUILD_NAME "${BUILD_NAME}-${PROG_VERSION}.m1p2")
+ELSE()
+    SET(BUILD_NAME "${BUILD_NAME}-${PROG_VERSION}")
+ENDIF()
+
+
+set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME "${BUILD_NAME}")
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
 		graphics
@@ -219,3 +229,11 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
 
 target_link_options(${PROJECT_NAME} PRIVATE -Xlinker --print-memory-usage --data-sections --function-sections)
 pico_add_extra_outputs(${PROJECT_NAME})
+
+if (m1p2launcher)
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E rename
+        "${OUTPUT_DIR}/${BUILD_NAME}.uf2"
+        "${OUTPUT_DIR}/${BUILD_NAME}"
+    )
+endif ()
