@@ -209,7 +209,7 @@ static inline void get_real_x_and_y(int &ret_x, int &ret_y, int scanline) {
     }
 }
 
-// 4 gradients 0b000000xy converted to 0bx000y000
+// 4 gradients 0b000000xy converted to 0bxxxxyyyy
 static inline uint8_t get_pixel_from_vram(int x, int y) {
     x &= 0xff;
     y &= 0xff;
@@ -223,36 +223,47 @@ static inline uint8_t get_pixel_from_vram(int x, int y) {
     uint8_t plane1 = (VRAM[address + 1] >> (7 - x)) & 0x1;
 
     if (!m_swapplanes)
-        return (plane0 << 3) | (plane1 << 7);
+        return (plane0 ? 0b1111 : 0) | (plane1 ? 0b11110000: 0);
     else
-        return (plane1 << 3) | (plane0 << 7); // does any game use this?
+        return (plane1 ? 0b1111 : 0) | (plane0 ? 0b11110000: 0); // does any game use this?
 }
 
-static uint8_t rich_screen[150*160] = { 0 };
+static uint8_t expected_screen[150*160] = { 0 };
+static uint8_t rich_screen[150*160] = { 0 }; // current extended value
 void __time_critical_func(screen_update)(uint8_t *screen, uint8_t ghosting) {
     int real_x, real_y;
     if (m_displayblank) {
-        uint8_t* p = rich_screen;
-        for (int i = 0; i < sizeof(rich_screen); ++i) {
-            *p++ &= 0b01110111;
-        }
-        return;
+        memset(expected_screen, 0, sizeof(expected_screen));
+        goto convert;
     }
     // LCD flow: 250 мс (15 frames) rise, 200 мс (12 frames) fall
-    uint8_t ghost_speed = ghosting < 7 ? (7 - ghosting) : 1;
     for (int scanline = 0; scanline < 150; scanline++) {
         get_real_x_and_y(real_x, real_y, scanline);
-        uint8_t* p = rich_screen + scanline * 160;
-        for (int x = 0; x < 160; ++x, ++p) {
-            *p = get_pixel_from_vram(x + real_x, real_y) | (*p >> ghost_speed);
+        uint8_t* p = expected_screen + scanline * 160;
+        for (int x = 0; x < 160; ++x) {
+            *p++ = get_pixel_from_vram(x + real_x, real_y);
         }
     }
-    uint8_t* p_in = rich_screen;
+convert:
+    uint8_t ghost_speed = ghosting < 7 ? (7 - ghosting) : 1;
+    ghosting = (0xFF >> (ghosting + 1)); // mask to extend values
     uint8_t* p_out = screen;
+    uint8_t* p_exp = expected_screen;
+    uint8_t* p_rich = rich_screen;
     for (int i = 0; i < sizeof(rich_screen); ++i) {
-        uint8_t in = *p_in++;
+        uint8_t new_v = *p_exp++;
+        uint8_t pre_v = *p_rich;
+        uint8_t v;
+        if (new_v > pre_v) {
+            v = (pre_v << ghost_speed) | ghosting;
+            if (v > new_v) v = new_v;
+        } else {
+            v = pre_v >> ghost_speed;
+            if (v < new_v) v = new_v;
+        }
+        *p_rich++ = v;
         // back to output style format -> 0bxy
-        *p_out++ = ((in >> 4) ? 0b10 : 0) | ((in & 0b1111) ? 0b01 : 0);
+        *p_out++ = ((v >> 4) ? 0b10 : 0) | ((v & 0b1111) ? 0b01 : 0);
     }
 }
 
