@@ -87,6 +87,12 @@ bool swap_ab = false;
 
 void nespad_tick() {
     nespad_read();
+    if (((nespad_state & DPAD_LEFT) && (nespad_state & DPAD_RIGHT)) ||
+        ((nespad_state & DPAD_DOWN) && (nespad_state & DPAD_UP))
+    ) {
+        gamepad1_bits = keyboard;
+        return;
+    }
 
     uint8_t controls_state = 0;
 
