@@ -520,11 +520,11 @@ typedef struct __attribute__((__packed__)) {
     char value_list[45][20];
 } MenuItem;
 
-uint16_t frequencies[] = { 252, 378, 396, 404, 408, 412, 416, 420, 424, 432 };
-uint8_t frequency_index = 1;
+uint16_t frequencies[] = { 252, 362, 366, 378, 396, 404, 408, 412, 416, 420, 424, 432 };
+uint8_t frequency_index = 0;
 
 #ifndef PICO_RP2040
-void __not_in_flash() flash_timings() {
+static void __not_in_flash_func(flash_timings)() {
         const int max_flash_freq = 88 * MHZ;
         const int clock_hz = frequencies[frequency_index] * MHZ;
         int divisor = (clock_hz + max_flash_freq - 1) / max_flash_freq;
@@ -541,20 +541,21 @@ void __not_in_flash() flash_timings() {
 }
 #endif
 
-bool overclock() {
+bool __not_in_flash_func(overclock)() {
 #ifndef PICO_RP2040
-    volatile uint32_t *qmi_m0_timing=(uint32_t *)0x400d000c;
     vreg_disable_voltage_limit();
     vreg_set_voltage(VREG_VOLTAGE_1_60);
     sleep_ms(33);
     flash_timings();
-    bool res = set_sys_clock_khz(frequencies[frequency_index] * KHZ, 0);
-    return res;
 #else
     hw_set_bits(&vreg_and_chip_reset_hw->vreg, VREG_AND_CHIP_RESET_VREG_VSEL_BITS);
     sleep_ms(10);
-    return set_sys_clock_khz(frequencies[frequency_index] * KHZ, true);
 #endif
+    bool res = set_sys_clock_khz(frequencies[frequency_index] * KHZ, 0);
+    if (res) {
+        adjust_clk();
+    }
+    return res;
 }
 
 bool save() {
@@ -735,7 +736,7 @@ const MenuItem menu_items[] = {
 {},
 {
     "Overclocking: %s MHz", ARRAY, &frequency_index, &overclock, count_of(frequencies) - 1,
-    { "252", "378", "396", "404", "408", "412", "416", "420", "424", "432" }
+    { "252", "362", "366", "378", "396", "404", "408", "412", "416", "420", "424", "432" }
 },
 { "Press START / Enter to apply", NONE },
     { "Reset to ROM select", ROM_SELECT },

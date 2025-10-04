@@ -328,6 +328,12 @@ void __time_critical_func() dma_handler_VGA() {
     dma_channel_set_read_addr(dma_chan_ctrl, output_buffer, false);
 }
 
+void __not_in_flash_func(adjust_clk)(void) {
+    double fdiv = clock_get_hz(clk_sys) / 25175000.0; //частота пиксельклока
+    const uint32_t div32 = (uint32_t)(fdiv * (1 << 16) + 0.0);
+    PIO_VGA->sm[_SM_VGA].clkdiv = div32 & 0xfffff000; //делитель для конкретной sm
+}
+
 void graphics_set_mode(enum graphics_mode_t mode) {
     switch (mode) {
         case TEXTMODE_53x30:
