@@ -78,13 +78,13 @@ SETTINGS settings = {
     .palette = 0,
     .save_slot = 0,
     .tba = 0,
-    .rgb0 = 0x7bc77b,
-    .rgb1 = 0x52a68c,
-    .rgb2 = 0x2e6260,
-    .rgb3 = 0x0d322e
+    .rgb0 = 0xCCFFFF,
+    .rgb1 = 0xFFB266,
+    .rgb2 = 0xCC0066,
+    .rgb3 = 0x663300
 };
 
-struct input_bits_t {
+typedef struct input_bits_s {
     bool a: true;
     bool b: true;
     bool select: true;
@@ -93,9 +93,17 @@ struct input_bits_t {
     bool left: true;
     bool up: true;
     bool down: true;
-};
+} input_bits_t;
 
-static input_bits_t keyboard = { false, false, false, false, false, false, false, false };
+typedef struct kbd_s {
+    input_bits_t bits;
+    int8_t h_code;
+} kbd_t;
+
+static kbd_t keyboard = {
+    .bits = { false, false, false, false, false, false, false, false },
+    .h_code = -1
+};
 static input_bits_t gamepad1_bits = { false, false, false, false, false, false, false, false };
 static input_bits_t gamepad2_bits = { false, false, false, false, false, false, false, false };
 
@@ -106,27 +114,27 @@ void nespad_tick() {
     if (((nespad_state & DPAD_LEFT) && (nespad_state & DPAD_RIGHT)) ||
         ((nespad_state & DPAD_DOWN) && (nespad_state & DPAD_UP))
     ) {
-        gamepad1_bits = keyboard;
+        gamepad1_bits = keyboard.bits;
         return;
     }
 
     uint8_t controls_state = 0;
 
     if (settings.swap_ab) {
-        gamepad1_bits.b = keyboard.a || (nespad_state & DPAD_A) != 0;
-        gamepad1_bits.a = keyboard.b || (nespad_state & DPAD_B) != 0;
+        gamepad1_bits.b = keyboard.bits.a || (nespad_state & DPAD_A) != 0;
+        gamepad1_bits.a = keyboard.bits.b || (nespad_state & DPAD_B) != 0;
     } else {
-        gamepad1_bits.a = keyboard.a || (nespad_state & DPAD_A) != 0;
-        gamepad1_bits.b = keyboard.b || (nespad_state & DPAD_B) != 0;
+        gamepad1_bits.a = keyboard.bits.a || (nespad_state & DPAD_A) != 0;
+        gamepad1_bits.b = keyboard.bits.b || (nespad_state & DPAD_B) != 0;
 
     }
 
-    gamepad1_bits.select = keyboard.select || (nespad_state & DPAD_SELECT) != 0;
-    gamepad1_bits.start = keyboard.start || (nespad_state & DPAD_START) != 0;
-    gamepad1_bits.up = keyboard.up || (nespad_state & DPAD_UP) != 0;
-    gamepad1_bits.down = keyboard.down || (nespad_state & DPAD_DOWN) != 0;
-    gamepad1_bits.left = keyboard.left || (nespad_state & DPAD_LEFT) != 0;
-    gamepad1_bits.right = keyboard.right || (nespad_state & DPAD_RIGHT) != 0;
+    gamepad1_bits.select = keyboard.bits.select || (nespad_state & DPAD_SELECT) != 0;
+    gamepad1_bits.start = keyboard.bits.start || (nespad_state & DPAD_START) != 0;
+    gamepad1_bits.up = keyboard.bits.up || (nespad_state & DPAD_UP) != 0;
+    gamepad1_bits.down = keyboard.bits.down || (nespad_state & DPAD_DOWN) != 0;
+    gamepad1_bits.left = keyboard.bits.left || (nespad_state & DPAD_LEFT) != 0;
+    gamepad1_bits.right = keyboard.bits.right || (nespad_state & DPAD_RIGHT) != 0;
 
 
     if (gamepad1_bits.up) controls_state|=0x08;
@@ -161,21 +169,39 @@ __not_in_flash_func(process_kbd_report)(hid_keyboard_report_t const* report, hid
         printf("%2.2X", i);
     printf("\r\n");
      */
-    keyboard.start = isInReport(report, HID_KEY_ENTER) || isInReport(report, HID_KEY_KEYPAD_ENTER);
-    keyboard.select = isInReport(report, HID_KEY_BACKSPACE) || isInReport(report, HID_KEY_ESCAPE) || isInReport(report, HID_KEY_KEYPAD_ADD);
+    uint8_t h_code = -1;
+    if ( isInReport(report, HID_KEY_0) || isInReport(report, HID_KEY_KEYPAD_0)) h_code = 0;
+    else if ( isInReport(report, HID_KEY_1) || isInReport(report, HID_KEY_KEYPAD_1)) h_code = 1;
+    else if ( isInReport(report, HID_KEY_2) || isInReport(report, HID_KEY_KEYPAD_2)) h_code = 2;
+    else if ( isInReport(report, HID_KEY_3) || isInReport(report, HID_KEY_KEYPAD_3)) h_code = 3;
+    else if ( isInReport(report, HID_KEY_4) || isInReport(report, HID_KEY_KEYPAD_4)) h_code = 4;
+    else if ( isInReport(report, HID_KEY_5) || isInReport(report, HID_KEY_KEYPAD_5)) h_code = 5;
+    else if ( isInReport(report, HID_KEY_6) || isInReport(report, HID_KEY_KEYPAD_6)) h_code = 6;
+    else if ( isInReport(report, HID_KEY_7) || isInReport(report, HID_KEY_KEYPAD_7)) h_code = 7;
+    else if ( isInReport(report, HID_KEY_8) || isInReport(report, HID_KEY_KEYPAD_8)) h_code = 8;
+    else if ( isInReport(report, HID_KEY_9) || isInReport(report, HID_KEY_KEYPAD_9)) h_code = 9;
+    else if ( isInReport(report, HID_KEY_A)) h_code = 10;
+    else if ( isInReport(report, HID_KEY_B)) h_code = 11;
+    else if ( isInReport(report, HID_KEY_C)) h_code = 12;
+    else if ( isInReport(report, HID_KEY_D)) h_code = 13;
+    else if ( isInReport(report, HID_KEY_E)) h_code = 14;
+    else if ( isInReport(report, HID_KEY_F)) h_code = 15;
+    keyboard.h_code = h_code;
+    keyboard.bits.start = isInReport(report, HID_KEY_ENTER) || isInReport(report, HID_KEY_KEYPAD_ENTER);
+    keyboard.bits.select = isInReport(report, HID_KEY_BACKSPACE) || isInReport(report, HID_KEY_ESCAPE) || isInReport(report, HID_KEY_KEYPAD_ADD);
 
-    keyboard.a = isInReport(report, HID_KEY_Z) || isInReport(report, HID_KEY_O) || isInReport(report, HID_KEY_KEYPAD_0);
-    keyboard.b = isInReport(report, HID_KEY_X) || isInReport(report, HID_KEY_P) || isInReport(report, HID_KEY_KEYPAD_DECIMAL);
+    keyboard.bits.a = isInReport(report, HID_KEY_Z) || isInReport(report, HID_KEY_O) || isInReport(report, HID_KEY_KEYPAD_0);
+    keyboard.bits.b = isInReport(report, HID_KEY_X) || isInReport(report, HID_KEY_P) || isInReport(report, HID_KEY_KEYPAD_DECIMAL);
 
     bool b7 = isInReport(report, HID_KEY_KEYPAD_7);
     bool b9 = isInReport(report, HID_KEY_KEYPAD_9);
     bool b1 = isInReport(report, HID_KEY_KEYPAD_1);
     bool b3 = isInReport(report, HID_KEY_KEYPAD_3);
 
-    keyboard.up = b7 || b9 || isInReport(report, HID_KEY_ARROW_UP) || isInReport(report, HID_KEY_W) || isInReport(report, HID_KEY_KEYPAD_8);
-    keyboard.down = b1 || b3 || isInReport(report, HID_KEY_ARROW_DOWN) || isInReport(report, HID_KEY_S) || isInReport(report, HID_KEY_KEYPAD_2) || isInReport(report, HID_KEY_KEYPAD_5);
-    keyboard.left = b7 || b1 || isInReport(report, HID_KEY_ARROW_LEFT) || isInReport(report, HID_KEY_A) || isInReport(report, HID_KEY_KEYPAD_4);
-    keyboard.right = b9 || b3 || isInReport(report, HID_KEY_ARROW_RIGHT)  || isInReport(report, HID_KEY_D) || isInReport(report, HID_KEY_KEYPAD_6);
+    keyboard.bits.up = b7 || b9 || isInReport(report, HID_KEY_ARROW_UP) || isInReport(report, HID_KEY_W) || isInReport(report, HID_KEY_KEYPAD_8);
+    keyboard.bits.down = b1 || b3 || isInReport(report, HID_KEY_ARROW_DOWN) || isInReport(report, HID_KEY_S) || isInReport(report, HID_KEY_KEYPAD_2) || isInReport(report, HID_KEY_KEYPAD_5);
+    keyboard.bits.left = b7 || b1 || isInReport(report, HID_KEY_ARROW_LEFT) || isInReport(report, HID_KEY_A) || isInReport(report, HID_KEY_KEYPAD_4);
+    keyboard.bits.right = b9 || b3 || isInReport(report, HID_KEY_ARROW_RIGHT)  || isInReport(report, HID_KEY_D) || isInReport(report, HID_KEY_KEYPAD_6);
 
     altPressed = isInReport(report, HID_KEY_ALT_LEFT) || isInReport(report, HID_KEY_ALT_RIGHT);
     ctrlPressed = isInReport(report, HID_KEY_CONTROL_LEFT) || isInReport(report, HID_KEY_CONTROL_RIGHT);
@@ -802,6 +828,19 @@ void menu() {
                     case HEX:
                         if (item->max_value != 0 && count_of(palettes) <= settings.palette) {
                             uint32_t* value = (uint32_t *)item->value;
+                            if (keyboard.h_code >= 0) {
+                                if (hex_digit < 0) hex_digit = 0;
+                                uint32_t vc = *value;
+                                vc &= ~(0xF << (5 - hex_digit) * 4);
+                                vc |= ((uint32_t)keyboard.h_code << (5 - hex_digit) * 4);
+                                keyboard.h_code = -1;
+                                if (++hex_digit == 6) {
+                                    hex_digit = 0;
+                                    current_item++;
+                                }
+                                if (vc < item->max_value) *value = vc;
+                                break;
+                            }
                             if (gamepad1_bits.right && hex_digit == 5) {
                                 hex_digit = -1;
                             } else if (gamepad1_bits.right && hex_digit < 6) {
