@@ -208,9 +208,11 @@ void graphics_set_modeTV(tv_out_mode_t mode) {
     video_mode.LVL_BLACK_TMPL = CONV_DAC(video_mode.LVL_BLACK) | (1 << SYNC_PIN);
 
     sm_config_set_clkdiv((pio_sm_config*)PIO_VIDEO->sm, clock_get_hz(clk_sys) / (color_freq * 4));
-
 };
 
+void __not_in_flash_func(adjust_clk)(void) {
+    sm_config_set_clkdiv((pio_sm_config*)PIO_VIDEO->sm, clock_get_hz(clk_sys) / (color_freq * 4));
+}
 
 static uint32_t cbNORM[2][10]; //цветовая вспышка 80байт
 static uint32_t cbINV[2][10]; //цветовая вспышка	инвертированная 80 байт

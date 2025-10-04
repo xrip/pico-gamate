@@ -304,6 +304,7 @@ static inline void irq_set_exclusive_handler_DMA_core1() {
 
 //деинициализация - инициализация ресурсов
 static inline bool hdmi_init() {
+    pio_sm_config c_c;
     //выключение прерывания DMA
     if (VIDEO_DMA_IRQ == DMA_IRQ_0) {
         dma_channel_set_irq0_enabled(dma_chan_ctrl, false);
@@ -312,7 +313,6 @@ static inline bool hdmi_init() {
     }
 
     irq_remove_handler_DMA_core1();
-
 
     //остановка всех каналов DMA
     dma_hw->abort = (1 << dma_chan_ctrl) | (1 << dma_chan) | (1 << dma_chan_pal_conv) | (
@@ -366,7 +366,7 @@ static inline bool hdmi_init() {
 
     //настройка PIO SM для конвертации
 
-    pio_sm_config c_c = pio_get_default_sm_config();
+    c_c = pio_get_default_sm_config();
     sm_config_set_wrap(&c_c, offs_prg1, offs_prg1 + (pio_program_conv_addr_HDMI.length - 1));
     sm_config_set_in_shift(&c_c, true, false, 32);
 
@@ -516,6 +516,11 @@ static inline bool hdmi_init() {
 
     return true;
 };
+
+void __not_in_flash_func(adjust_clk)(void) {
+//    
+}
+
 //выбор видеорежима
 void graphics_set_mode(enum graphics_mode_t mode) {
     graphics_mode = mode;

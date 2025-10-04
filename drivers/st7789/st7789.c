@@ -222,6 +222,10 @@ void st7789_dma_pixels(const uint16_t* pixels, const uint num_pixels) {
     dma_channel_hw_addr(st7789_chan)->ctrl_trig = ctrl | DMA_CH0_CTRL_TRIG_INCR_READ_BITS;
 }
 
+void __not_in_flash_func(adjust_clk)(void) {
+//    
+}
+
 void __inline
 // __scratch_y("refresh_lcd")
 __not_in_flash_func(refresh_lcd)() {
