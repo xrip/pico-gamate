@@ -63,6 +63,7 @@ typedef struct __attribute__((__packed__)) {
     uint8_t ghosting;
     uint8_t palette;
     uint8_t save_slot;
+    uint16_t tba;
     uint32_t rgb0;
     uint32_t rgb1;
     uint32_t rgb2;
@@ -76,6 +77,7 @@ SETTINGS settings = {
     .ghosting = 4,
     .palette = 0,
     .save_slot = 0,
+    .tba = 0,
     .rgb0 = 0x7bc77b,
     .rgb1 = 0x52a68c,
     .rgb2 = 0x2e6260,
