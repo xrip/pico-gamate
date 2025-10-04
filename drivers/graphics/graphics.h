@@ -68,6 +68,8 @@ void draw_window(const char title[TEXTMODE_COLS + 1], uint32_t x, uint32_t y, ui
 
 void clrScr(uint8_t color);
 
+void adjust_clk(void);
+
 #ifdef __cplusplus
 }
 #endif

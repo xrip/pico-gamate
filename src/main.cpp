@@ -1,4 +1,10 @@
 #pragma GCC optimize("Ofast")
+
+#ifdef PICO_RP2350
+#include <hardware/regs/qmi.h>
+#include <hardware/structs/qmi.h>
+#endif
+
 #include <cstdio>
 #include <cstring>
 #include <pico.h>
@@ -57,18 +63,28 @@ typedef struct __attribute__((__packed__)) {
     uint8_t ghosting;
     uint8_t palette;
     uint8_t save_slot;
+    uint16_t tba;
+    uint32_t rgb0;
+    uint32_t rgb1;
+    uint32_t rgb2;
+    uint32_t rgb3;
 } SETTINGS;
 
 SETTINGS settings = {
-        .version = 1,
-        .swap_ab = false,
-        .aspect_ratio = false,
-        .ghosting = 4,
-        .palette = 0,
-        .save_slot = 0,
+    .version = 1,
+    .swap_ab = false,
+    .aspect_ratio = false,
+    .ghosting = 4,
+    .palette = 0,
+    .save_slot = 0,
+    .tba = 0,
+    .rgb0 = 0xCCFFFF,
+    .rgb1 = 0xFFB266,
+    .rgb2 = 0xCC0066,
+    .rgb3 = 0x663300
 };
 
-struct input_bits_t {
+typedef struct input_bits_s {
     bool a: true;
     bool b: true;
     bool select: true;
@@ -77,9 +93,17 @@ struct input_bits_t {
     bool left: true;
     bool up: true;
     bool down: true;
-};
+} input_bits_t;
 
-static input_bits_t keyboard = { false, false, false, false, false, false, false, false };
+typedef struct kbd_s {
+    input_bits_t bits;
+    int8_t h_code;
+} kbd_t;
+
+static kbd_t keyboard = {
+    .bits = { false, false, false, false, false, false, false, false },
+    .h_code = -1
+};
 static input_bits_t gamepad1_bits = { false, false, false, false, false, false, false, false };
 static input_bits_t gamepad2_bits = { false, false, false, false, false, false, false, false };
 
@@ -90,27 +114,27 @@ void nespad_tick() {
     if (((nespad_state & DPAD_LEFT) && (nespad_state & DPAD_RIGHT)) ||
         ((nespad_state & DPAD_DOWN) && (nespad_state & DPAD_UP))
     ) {
-        gamepad1_bits = keyboard;
+        gamepad1_bits = keyboard.bits;
         return;
     }
 
     uint8_t controls_state = 0;
 
     if (settings.swap_ab) {
-        gamepad1_bits.b = keyboard.a || (nespad_state & DPAD_A) != 0;
-        gamepad1_bits.a = keyboard.b || (nespad_state & DPAD_B) != 0;
+        gamepad1_bits.b = keyboard.bits.a || (nespad_state & DPAD_A) != 0;
+        gamepad1_bits.a = keyboard.bits.b || (nespad_state & DPAD_B) != 0;
     } else {
-        gamepad1_bits.a = keyboard.a || (nespad_state & DPAD_A) != 0;
-        gamepad1_bits.b = keyboard.b || (nespad_state & DPAD_B) != 0;
+        gamepad1_bits.a = keyboard.bits.a || (nespad_state & DPAD_A) != 0;
+        gamepad1_bits.b = keyboard.bits.b || (nespad_state & DPAD_B) != 0;
 
     }
 
-    gamepad1_bits.select = keyboard.select || (nespad_state & DPAD_SELECT) != 0;
-    gamepad1_bits.start = keyboard.start || (nespad_state & DPAD_START) != 0;
-    gamepad1_bits.up = keyboard.up || (nespad_state & DPAD_UP) != 0;
-    gamepad1_bits.down = keyboard.down || (nespad_state & DPAD_DOWN) != 0;
-    gamepad1_bits.left = keyboard.left || (nespad_state & DPAD_LEFT) != 0;
-    gamepad1_bits.right = keyboard.right || (nespad_state & DPAD_RIGHT) != 0;
+    gamepad1_bits.select = keyboard.bits.select || (nespad_state & DPAD_SELECT) != 0;
+    gamepad1_bits.start = keyboard.bits.start || (nespad_state & DPAD_START) != 0;
+    gamepad1_bits.up = keyboard.bits.up || (nespad_state & DPAD_UP) != 0;
+    gamepad1_bits.down = keyboard.bits.down || (nespad_state & DPAD_DOWN) != 0;
+    gamepad1_bits.left = keyboard.bits.left || (nespad_state & DPAD_LEFT) != 0;
+    gamepad1_bits.right = keyboard.bits.right || (nespad_state & DPAD_RIGHT) != 0;
 
 
     if (gamepad1_bits.up) controls_state|=0x08;
@@ -145,21 +169,39 @@ __not_in_flash_func(process_kbd_report)(hid_keyboard_report_t const* report, hid
         printf("%2.2X", i);
     printf("\r\n");
      */
-    keyboard.start = isInReport(report, HID_KEY_ENTER) || isInReport(report, HID_KEY_KEYPAD_ENTER);
-    keyboard.select = isInReport(report, HID_KEY_BACKSPACE) || isInReport(report, HID_KEY_ESCAPE) || isInReport(report, HID_KEY_KEYPAD_ADD);
+    uint8_t h_code = -1;
+    if ( isInReport(report, HID_KEY_0) || isInReport(report, HID_KEY_KEYPAD_0)) h_code = 0;
+    else if ( isInReport(report, HID_KEY_1) || isInReport(report, HID_KEY_KEYPAD_1)) h_code = 1;
+    else if ( isInReport(report, HID_KEY_2) || isInReport(report, HID_KEY_KEYPAD_2)) h_code = 2;
+    else if ( isInReport(report, HID_KEY_3) || isInReport(report, HID_KEY_KEYPAD_3)) h_code = 3;
+    else if ( isInReport(report, HID_KEY_4) || isInReport(report, HID_KEY_KEYPAD_4)) h_code = 4;
+    else if ( isInReport(report, HID_KEY_5) || isInReport(report, HID_KEY_KEYPAD_5)) h_code = 5;
+    else if ( isInReport(report, HID_KEY_6) || isInReport(report, HID_KEY_KEYPAD_6)) h_code = 6;
+    else if ( isInReport(report, HID_KEY_7) || isInReport(report, HID_KEY_KEYPAD_7)) h_code = 7;
+    else if ( isInReport(report, HID_KEY_8) || isInReport(report, HID_KEY_KEYPAD_8)) h_code = 8;
+    else if ( isInReport(report, HID_KEY_9) || isInReport(report, HID_KEY_KEYPAD_9)) h_code = 9;
+    else if ( isInReport(report, HID_KEY_A)) h_code = 10;
+    else if ( isInReport(report, HID_KEY_B)) h_code = 11;
+    else if ( isInReport(report, HID_KEY_C)) h_code = 12;
+    else if ( isInReport(report, HID_KEY_D)) h_code = 13;
+    else if ( isInReport(report, HID_KEY_E)) h_code = 14;
+    else if ( isInReport(report, HID_KEY_F)) h_code = 15;
+    keyboard.h_code = h_code;
+    keyboard.bits.start = isInReport(report, HID_KEY_ENTER) || isInReport(report, HID_KEY_KEYPAD_ENTER);
+    keyboard.bits.select = isInReport(report, HID_KEY_BACKSPACE) || isInReport(report, HID_KEY_ESCAPE) || isInReport(report, HID_KEY_KEYPAD_ADD);
 
-    keyboard.a = isInReport(report, HID_KEY_Z) || isInReport(report, HID_KEY_O) || isInReport(report, HID_KEY_KEYPAD_0);
-    keyboard.b = isInReport(report, HID_KEY_X) || isInReport(report, HID_KEY_P) || isInReport(report, HID_KEY_KEYPAD_DECIMAL);
+    keyboard.bits.a = isInReport(report, HID_KEY_Z) || isInReport(report, HID_KEY_O) || isInReport(report, HID_KEY_KEYPAD_0);
+    keyboard.bits.b = isInReport(report, HID_KEY_X) || isInReport(report, HID_KEY_P) || isInReport(report, HID_KEY_KEYPAD_DECIMAL);
 
     bool b7 = isInReport(report, HID_KEY_KEYPAD_7);
     bool b9 = isInReport(report, HID_KEY_KEYPAD_9);
     bool b1 = isInReport(report, HID_KEY_KEYPAD_1);
     bool b3 = isInReport(report, HID_KEY_KEYPAD_3);
 
-    keyboard.up = b7 || b9 || isInReport(report, HID_KEY_ARROW_UP) || isInReport(report, HID_KEY_W) || isInReport(report, HID_KEY_KEYPAD_8);
-    keyboard.down = b1 || b3 || isInReport(report, HID_KEY_ARROW_DOWN) || isInReport(report, HID_KEY_S) || isInReport(report, HID_KEY_KEYPAD_2) || isInReport(report, HID_KEY_KEYPAD_5);
-    keyboard.left = b7 || b1 || isInReport(report, HID_KEY_ARROW_LEFT) || isInReport(report, HID_KEY_A) || isInReport(report, HID_KEY_KEYPAD_4);
-    keyboard.right = b9 || b3 || isInReport(report, HID_KEY_ARROW_RIGHT)  || isInReport(report, HID_KEY_D) || isInReport(report, HID_KEY_KEYPAD_6);
+    keyboard.bits.up = b7 || b9 || isInReport(report, HID_KEY_ARROW_UP) || isInReport(report, HID_KEY_W) || isInReport(report, HID_KEY_KEYPAD_8);
+    keyboard.bits.down = b1 || b3 || isInReport(report, HID_KEY_ARROW_DOWN) || isInReport(report, HID_KEY_S) || isInReport(report, HID_KEY_KEYPAD_2) || isInReport(report, HID_KEY_KEYPAD_5);
+    keyboard.bits.left = b7 || b1 || isInReport(report, HID_KEY_ARROW_LEFT) || isInReport(report, HID_KEY_A) || isInReport(report, HID_KEY_KEYPAD_4);
+    keyboard.bits.right = b9 || b3 || isInReport(report, HID_KEY_ARROW_RIGHT)  || isInReport(report, HID_KEY_D) || isInReport(report, HID_KEY_KEYPAD_6);
 
     altPressed = isInReport(report, HID_KEY_ALT_LEFT) || isInReport(report, HID_KEY_ALT_RIGHT);
     ctrlPressed = isInReport(report, HID_KEY_CONTROL_LEFT) || isInReport(report, HID_KEY_CONTROL_RIGHT);
@@ -484,6 +526,7 @@ void filebrowser(const char pathname[256], const char executables[11]) {
 
 enum menu_type_e {
     NONE,
+    HEX,
     INT,
     TEXT,
     ARRAY,
@@ -501,28 +544,50 @@ typedef struct __attribute__((__packed__)) {
     menu_type_e type;
     const void* value;
     menu_callback_t callback;
-    uint8_t max_value;
+    uint32_t max_value;
     char value_list[45][20];
 } MenuItem;
 
-uint16_t frequencies[] = { 378, 396, 404, 408, 412, 416, 420, 424, 432 };
+uint16_t frequencies[] = { 252, 362, 366, 378, 396, 404, 408, 412, 416, 420, 424, 432 };
+#ifdef PICO_RP2040
+uint8_t frequency_index = 3;
+#else
 uint8_t frequency_index = 0;
+#endif
 
-bool overclock() {
-#if !PICO_RP2040
-    volatile uint32_t *qmi_m0_timing=(uint32_t *)0x400d000c;
+#ifndef PICO_RP2040
+static void __not_in_flash_func(flash_timings)() {
+        const int max_flash_freq = 88 * MHZ;
+        const int clock_hz = frequencies[frequency_index] * MHZ;
+        int divisor = (clock_hz + max_flash_freq - 1) / max_flash_freq;
+        if (divisor == 1 && clock_hz > 100000000) {
+            divisor = 2;
+        }
+        int rxdelay = divisor;
+        if (clock_hz / divisor > 100000000) {
+            rxdelay += 1;
+        }
+        qmi_hw->m[0].timing = 0x60007000 |
+                            rxdelay << QMI_M0_TIMING_RXDELAY_LSB |
+                            divisor << QMI_M0_TIMING_CLKDIV_LSB;
+}
+#endif
+
+bool __not_in_flash_func(overclock)() {
+#ifndef PICO_RP2040
     vreg_disable_voltage_limit();
     vreg_set_voltage(VREG_VOLTAGE_1_60);
     sleep_ms(33);
-    *qmi_m0_timing = 0x60007204;
-    bool res = set_sys_clock_khz(frequencies[frequency_index] * KHZ, 0);
-    *qmi_m0_timing = 0x60007303;
-    return res;
+    flash_timings();
 #else
     hw_set_bits(&vreg_and_chip_reset_hw->vreg, VREG_AND_CHIP_RESET_VREG_VSEL_BITS);
     sleep_ms(10);
-    return set_sys_clock_khz(frequencies[frequency_index] * KHZ, true);
 #endif
+    bool res = set_sys_clock_khz(frequencies[frequency_index] * KHZ, 0);
+    if (res) {
+        adjust_clk();
+    }
+    return res;
 }
 
 bool save() {
@@ -593,9 +658,6 @@ bool load() {
     return true;
 }
 
-
-
-
 void load_config() {
     FIL file;
     char pathname[256];
@@ -648,7 +710,7 @@ const MenuItem menu_items[] = {
         {"Swap AB <> BA: %s",     ARRAY, &settings.swap_ab,  nullptr, 1, {"NO ",       "YES"}},
         {},
         { "Ghosting pix: %i ", INT, &settings.ghosting, nullptr, 6 }, // 6 == shift 1, 5->2, 4->3, 3->4, 2->5, 1->6, 0->7
-        { "Palette: %s ", ARRAY, &settings.palette, nullptr, count_of(palettes)-1, {
+        { "Palette: %s ", ARRAY, &settings.palette, nullptr, count_of(palettes), {
                   "DEFAULT          "
                 , "BLACK & WHITE    "
                 , "AMBER            "
@@ -680,7 +742,12 @@ const MenuItem menu_items[] = {
                 , "TRAVEL_WOOD      "
                 , "VIRTUAL_BOY      "
                 , "TV-LINK          "
+                , "CUSTOM           "
          }},
+        { "RGB0: %06Xh ", HEX, &settings.rgb0, nullptr, 0xFFFFFF },
+        { "RGB1: %06Xh ", HEX, &settings.rgb1, nullptr, 0xFFFFFF },
+        { "RGB2: %06Xh ", HEX, &settings.rgb2, nullptr, 0xFFFFFF },
+        { "RGB3: %06Xh ", HEX, &settings.rgb3, nullptr, 0xFFFFFF },
 #if VGA
         { "Keep aspect ratio: %s",     ARRAY, &settings.aspect_ratio,  nullptr, 1, {"NO ",       "YES"}},
 #endif
@@ -701,7 +768,7 @@ const MenuItem menu_items[] = {
 {},
 {
     "Overclocking: %s MHz", ARRAY, &frequency_index, &overclock, count_of(frequencies) - 1,
-    { "378", "396", "404", "408", "412", "416", "420", "424", "432" }
+    { "252", "362", "366", "378", "396", "404", "408", "412", "416", "420", "424", "432" }
 },
 { "Press START / Enter to apply", NONE },
     { "Reset to ROM select", ROM_SELECT },
@@ -710,16 +777,26 @@ const MenuItem menu_items[] = {
 #define MENU_ITEMS_NUMBER (sizeof(menu_items) / sizeof (MenuItem))
 
 static inline void update_palette() {
-    for (int i =0; i < 4; i++) {
-        graphics_set_palette(i,RGB888(
-                                     palettes[settings.palette][3*i+0],
-                                     palettes[settings.palette][3*i+1],
-                                     palettes[settings.palette][3*i+2]
-                             )
-        );
+    if (count_of(palettes) <= settings.palette) {
+        graphics_set_palette(0, settings.rgb0);
+        graphics_set_palette(1, settings.rgb1);
+        graphics_set_palette(2, settings.rgb2);
+        graphics_set_palette(3, settings.rgb3);
+    } else {
+        const uint8_t (&palette)[12] = palettes[settings.palette];
+        for (int i = 0; i < 4; ++i) {
+            int i3 = i * 3;
+            graphics_set_palette(
+                i,
+                RGB888(
+                    palette[i3],
+                    palette[i3+1],
+                    palette[i3+2]
+                )
+            );
+        }
     }
 }
-
 
 void menu() {
     bool exit = false;
@@ -727,12 +804,15 @@ void menu() {
     char footer[TEXTMODE_COLS];
     snprintf(footer, TEXTMODE_COLS, ":: %s ::", PICO_PROGRAM_NAME);
     draw_text(footer, TEXTMODE_COLS / 2 - strlen(footer) / 2, 0, 11, 1);
-    snprintf(footer, TEXTMODE_COLS, ":: %s build %s %s ::", PICO_PROGRAM_VERSION_STRING, __DATE__,
-             __TIME__);
+    snprintf(footer, TEXTMODE_COLS, ":: %s build %s %s ::", PICO_PROGRAM_VERSION_STRING, __DATE__, __TIME__);
     draw_text(footer, TEXTMODE_COLS / 2 - strlen(footer) / 2, TEXTMODE_ROWS - 1, 11, 1);
     uint current_item = 0;
+    int8_t hex_digit = -1;
+    bool blink = false;
 
     while (!exit) {
+        blink = !blink;
+        bool hex_edit_mode = false;
         for (int i = 0; i < MENU_ITEMS_NUMBER; i++) {
             uint8_t y = i + (TEXTMODE_ROWS - MENU_ITEMS_NUMBER >> 1);
             uint8_t x = TEXTMODE_COLS / 2 - 10;
@@ -745,10 +825,46 @@ void menu() {
             const MenuItem* item = &menu_items[i];
             if (i == current_item) {
                 switch (item->type) {
+                    case HEX:
+                        if (item->max_value != 0 && count_of(palettes) <= settings.palette) {
+                            uint32_t* value = (uint32_t *)item->value;
+                            if (keyboard.h_code >= 0) {
+                                if (hex_digit < 0) hex_digit = 0;
+                                uint32_t vc = *value;
+                                vc &= ~(0xF << (5 - hex_digit) * 4);
+                                vc |= ((uint32_t)keyboard.h_code << (5 - hex_digit) * 4);
+                                keyboard.h_code = -1;
+                                if (++hex_digit == 6) {
+                                    hex_digit = 0;
+                                    current_item++;
+                                }
+                                if (vc < item->max_value) *value = vc;
+                                break;
+                            }
+                            if (gamepad1_bits.right && hex_digit == 5) {
+                                hex_digit = -1;
+                            } else if (gamepad1_bits.right && hex_digit < 6) {
+                                hex_digit++;
+                            }
+                            if (gamepad1_bits.left && hex_digit == -1) {
+                                hex_digit = 5;
+                            } else if (gamepad1_bits.left && hex_digit >= 0) {
+                                hex_digit--;
+                            }
+                            if (gamepad1_bits.up && hex_digit >= 0 && hex_digit <= 5) {
+                                uint32_t vc = *value + (1 << (5 - hex_digit) * 4);
+                                if (vc < item->max_value) *value = vc;
+                            }
+                            if (gamepad1_bits.down && hex_digit >= 0 && hex_digit <= 5) {
+                                uint32_t vc = *value - (1 << (5 - hex_digit) * 4);
+                                if (vc < item->max_value) *value = vc;
+                            }
+                        }
+                        break;
                     case INT:
                     case ARRAY:
                         if (item->max_value != 0) {
-                            auto* value = (uint8_t *)item->value;
+                            uint8_t* value = (uint8_t *)item->value;
                             if (gamepad1_bits.right && *value < item->max_value) {
                                 (*value)++;
                             }
@@ -778,6 +894,15 @@ void menu() {
             }
             static char result[TEXTMODE_COLS];
             switch (item->type) {
+                case HEX:
+                    snprintf(result, TEXTMODE_COLS, item->text, *(uint32_t*)item->value);
+                    if (i == current_item && hex_digit >= 0 && hex_digit < 6) {
+                        hex_edit_mode = true;
+                        if (blink) {
+                            result[hex_digit+6] = ' ';
+                        }
+                    }
+                    break;
                 case INT:
                     snprintf(result, TEXTMODE_COLS, item->text, *(uint8_t *)item->value);
                     break;
@@ -798,13 +923,13 @@ void menu() {
         if (gamepad1_bits.b || (gamepad1_bits.select && !gamepad1_bits.start))
             exit = true;
 
-        if (gamepad1_bits.down) {
+        if (gamepad1_bits.down && !hex_edit_mode) {
             current_item = (current_item + 1) % MENU_ITEMS_NUMBER;
 
             if (menu_items[current_item].type == NONE)
                 current_item++;
         }
-        if (gamepad1_bits.up) {
+        if (gamepad1_bits.up && !hex_edit_mode) {
             current_item = (current_item - 1 + MENU_ITEMS_NUMBER) % MENU_ITEMS_NUMBER;
 
             if (menu_items[current_item].type == NONE)
