@@ -523,7 +523,11 @@ typedef struct __attribute__((__packed__)) {
 } MenuItem;
 
 uint16_t frequencies[] = { 252, 362, 366, 378, 396, 404, 408, 412, 416, 420, 424, 432 };
+#ifdef PICO_RP2040
+uint8_t frequency_index = 3;
+#else
 uint8_t frequency_index = 0;
+#endif
 
 #ifndef PICO_RP2040
 static void __not_in_flash_func(flash_timings)() {

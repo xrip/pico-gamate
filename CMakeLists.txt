@@ -46,7 +46,7 @@ set(PROG_VERSION "3.0.5")
 #set(SOFTTV ON)
 
 #set(I2S ON)
-#set(HWAY ON)
+set(HWAY ON)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
