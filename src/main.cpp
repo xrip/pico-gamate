@@ -1,4 +1,10 @@
 #pragma GCC optimize("Ofast")
+
+#ifdef PICO_RP2350
+#include <hardware/regs/qmi.h>
+#include <hardware/structs/qmi.h>
+#endif
+
 #include <cstdio>
 #include <cstring>
 #include <pico.h>
@@ -514,18 +520,35 @@ typedef struct __attribute__((__packed__)) {
     char value_list[45][20];
 } MenuItem;
 
-uint16_t frequencies[] = { 378, 396, 404, 408, 412, 416, 420, 424, 432 };
-uint8_t frequency_index = 0;
+uint16_t frequencies[] = { 252, 378, 396, 404, 408, 412, 416, 420, 424, 432 };
+uint8_t frequency_index = 1;
+
+#ifndef PICO_RP2040
+void __not_in_flash() flash_timings() {
+        const int max_flash_freq = 88 * MHZ;
+        const int clock_hz = frequencies[frequency_index] * MHZ;
+        int divisor = (clock_hz + max_flash_freq - 1) / max_flash_freq;
+        if (divisor == 1 && clock_hz > 100000000) {
+            divisor = 2;
+        }
+        int rxdelay = divisor;
+        if (clock_hz / divisor > 100000000) {
+            rxdelay += 1;
+        }
+        qmi_hw->m[0].timing = 0x60007000 |
+                            rxdelay << QMI_M0_TIMING_RXDELAY_LSB |
+                            divisor << QMI_M0_TIMING_CLKDIV_LSB;
+}
+#endif
 
 bool overclock() {
-#if !PICO_RP2040
+#ifndef PICO_RP2040
     volatile uint32_t *qmi_m0_timing=(uint32_t *)0x400d000c;
     vreg_disable_voltage_limit();
     vreg_set_voltage(VREG_VOLTAGE_1_60);
     sleep_ms(33);
-    *qmi_m0_timing = 0x60007204;
+    flash_timings();
     bool res = set_sys_clock_khz(frequencies[frequency_index] * KHZ, 0);
-    *qmi_m0_timing = 0x60007303;
     return res;
 #else
     hw_set_bits(&vreg_and_chip_reset_hw->vreg, VREG_AND_CHIP_RESET_VREG_VSEL_BITS);
@@ -712,7 +735,7 @@ const MenuItem menu_items[] = {
 {},
 {
     "Overclocking: %s MHz", ARRAY, &frequency_index, &overclock, count_of(frequencies) - 1,
-    { "378", "396", "404", "408", "412", "416", "420", "424", "432" }
+    { "252", "378", "396", "404", "408", "412", "416", "420", "424", "432" }
 },
 { "Press START / Enter to apply", NONE },
     { "Reset to ROM select", ROM_SELECT },
