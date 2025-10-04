@@ -57,15 +57,23 @@ typedef struct __attribute__((__packed__)) {
     uint8_t ghosting;
     uint8_t palette;
     uint8_t save_slot;
+    uint32_t rgb0;
+    uint32_t rgb1;
+    uint32_t rgb2;
+    uint32_t rgb3;
 } SETTINGS;
 
 SETTINGS settings = {
-        .version = 1,
-        .swap_ab = false,
-        .aspect_ratio = false,
-        .ghosting = 4,
-        .palette = 0,
-        .save_slot = 0,
+    .version = 1,
+    .swap_ab = false,
+    .aspect_ratio = false,
+    .ghosting = 4,
+    .palette = 0,
+    .save_slot = 0,
+    .rgb0 = 0x7bc77b,
+    .rgb1 = 0x52a68c,
+    .rgb2 = 0x2e6260,
+    .rgb3 = 0x0d322e
 };
 
 struct input_bits_t {
@@ -484,6 +492,7 @@ void filebrowser(const char pathname[256], const char executables[11]) {
 
 enum menu_type_e {
     NONE,
+    HEX,
     INT,
     TEXT,
     ARRAY,
@@ -501,7 +510,7 @@ typedef struct __attribute__((__packed__)) {
     menu_type_e type;
     const void* value;
     menu_callback_t callback;
-    uint8_t max_value;
+    uint32_t max_value;
     char value_list[45][20];
 } MenuItem;
 
@@ -593,9 +602,6 @@ bool load() {
     return true;
 }
 
-
-
-
 void load_config() {
     FIL file;
     char pathname[256];
@@ -648,7 +654,7 @@ const MenuItem menu_items[] = {
         {"Swap AB <> BA: %s",     ARRAY, &settings.swap_ab,  nullptr, 1, {"NO ",       "YES"}},
         {},
         { "Ghosting pix: %i ", INT, &settings.ghosting, nullptr, 6 }, // 6 == shift 1, 5->2, 4->3, 3->4, 2->5, 1->6, 0->7
-        { "Palette: %s ", ARRAY, &settings.palette, nullptr, count_of(palettes)-1, {
+        { "Palette: %s ", ARRAY, &settings.palette, nullptr, count_of(palettes), {
                   "DEFAULT          "
                 , "BLACK & WHITE    "
                 , "AMBER            "
@@ -680,7 +686,12 @@ const MenuItem menu_items[] = {
                 , "TRAVEL_WOOD      "
                 , "VIRTUAL_BOY      "
                 , "TV-LINK          "
+                , "CUSTOM           "
          }},
+        { "RGB0: %06Xh ", HEX, &settings.rgb0, nullptr, 0xFFFFFF },
+        { "RGB1: %06Xh ", HEX, &settings.rgb1, nullptr, 0xFFFFFF },
+        { "RGB2: %06Xh ", HEX, &settings.rgb2, nullptr, 0xFFFFFF },
+        { "RGB3: %06Xh ", HEX, &settings.rgb3, nullptr, 0xFFFFFF },
 #if VGA
         { "Keep aspect ratio: %s",     ARRAY, &settings.aspect_ratio,  nullptr, 1, {"NO ",       "YES"}},
 #endif
@@ -710,16 +721,26 @@ const MenuItem menu_items[] = {
 #define MENU_ITEMS_NUMBER (sizeof(menu_items) / sizeof (MenuItem))
 
 static inline void update_palette() {
-    for (int i =0; i < 4; i++) {
-        graphics_set_palette(i,RGB888(
-                                     palettes[settings.palette][3*i+0],
-                                     palettes[settings.palette][3*i+1],
-                                     palettes[settings.palette][3*i+2]
-                             )
-        );
+    if (count_of(palettes) <= settings.palette) {
+        graphics_set_palette(0, settings.rgb0);
+        graphics_set_palette(1, settings.rgb1);
+        graphics_set_palette(2, settings.rgb2);
+        graphics_set_palette(3, settings.rgb3);
+    } else {
+        const uint8_t (&palette)[12] = palettes[settings.palette];
+        for (int i = 0; i < 4; ++i) {
+            int i3 = i * 3;
+            graphics_set_palette(
+                i,
+                RGB888(
+                    palette[i3],
+                    palette[i3+1],
+                    palette[i3+2]
+                )
+            );
+        }
     }
 }
-
 
 void menu() {
     bool exit = false;
@@ -727,12 +748,15 @@ void menu() {
     char footer[TEXTMODE_COLS];
     snprintf(footer, TEXTMODE_COLS, ":: %s ::", PICO_PROGRAM_NAME);
     draw_text(footer, TEXTMODE_COLS / 2 - strlen(footer) / 2, 0, 11, 1);
-    snprintf(footer, TEXTMODE_COLS, ":: %s build %s %s ::", PICO_PROGRAM_VERSION_STRING, __DATE__,
-             __TIME__);
+    snprintf(footer, TEXTMODE_COLS, ":: %s build %s %s ::", PICO_PROGRAM_VERSION_STRING, __DATE__, __TIME__);
     draw_text(footer, TEXTMODE_COLS / 2 - strlen(footer) / 2, TEXTMODE_ROWS - 1, 11, 1);
     uint current_item = 0;
+    int8_t hex_digit = -1;
+    bool blink = false;
 
     while (!exit) {
+        blink = !blink;
+        bool hex_edit_mode = false;
         for (int i = 0; i < MENU_ITEMS_NUMBER; i++) {
             uint8_t y = i + (TEXTMODE_ROWS - MENU_ITEMS_NUMBER >> 1);
             uint8_t x = TEXTMODE_COLS / 2 - 10;
@@ -745,10 +769,33 @@ void menu() {
             const MenuItem* item = &menu_items[i];
             if (i == current_item) {
                 switch (item->type) {
+                    case HEX:
+                        if (item->max_value != 0 && count_of(palettes) <= settings.palette) {
+                            uint32_t* value = (uint32_t *)item->value;
+                            if (gamepad1_bits.right && hex_digit == 5) {
+                                hex_digit = -1;
+                            } else if (gamepad1_bits.right && hex_digit < 6) {
+                                hex_digit++;
+                            }
+                            if (gamepad1_bits.left && hex_digit == -1) {
+                                hex_digit = 5;
+                            } else if (gamepad1_bits.left && hex_digit >= 0) {
+                                hex_digit--;
+                            }
+                            if (gamepad1_bits.up && hex_digit >= 0 && hex_digit <= 5) {
+                                uint32_t vc = *value + (1 << (5 - hex_digit) * 4);
+                                if (vc < item->max_value) *value = vc;
+                            }
+                            if (gamepad1_bits.down && hex_digit >= 0 && hex_digit <= 5) {
+                                uint32_t vc = *value - (1 << (5 - hex_digit) * 4);
+                                if (vc < item->max_value) *value = vc;
+                            }
+                        }
+                        break;
                     case INT:
                     case ARRAY:
                         if (item->max_value != 0) {
-                            auto* value = (uint8_t *)item->value;
+                            uint8_t* value = (uint8_t *)item->value;
                             if (gamepad1_bits.right && *value < item->max_value) {
                                 (*value)++;
                             }
@@ -778,6 +825,15 @@ void menu() {
             }
             static char result[TEXTMODE_COLS];
             switch (item->type) {
+                case HEX:
+                    snprintf(result, TEXTMODE_COLS, item->text, *(uint32_t*)item->value);
+                    if (i == current_item && hex_digit >= 0 && hex_digit < 6) {
+                        hex_edit_mode = true;
+                        if (blink) {
+                            result[hex_digit+6] = ' ';
+                        }
+                    }
+                    break;
                 case INT:
                     snprintf(result, TEXTMODE_COLS, item->text, *(uint8_t *)item->value);
                     break;
@@ -798,13 +854,13 @@ void menu() {
         if (gamepad1_bits.b || (gamepad1_bits.select && !gamepad1_bits.start))
             exit = true;
 
-        if (gamepad1_bits.down) {
+        if (gamepad1_bits.down && !hex_edit_mode) {
             current_item = (current_item + 1) % MENU_ITEMS_NUMBER;
 
             if (menu_items[current_item].type == NONE)
                 current_item++;
         }
-        if (gamepad1_bits.up) {
+        if (gamepad1_bits.up && !hex_edit_mode) {
             current_item = (current_item - 1 + MENU_ITEMS_NUMBER) % MENU_ITEMS_NUMBER;
 
             if (menu_items[current_item].type == NONE)

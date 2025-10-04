@@ -77,21 +77,21 @@ typedef struct
 /** starting execution with Run6502(). It sets registers to **/
 /** their initial values.                                   **/
 /*************************************************************/
-void Reset6502(register M6502 *R);
+void Reset6502(M6502 *R);
 
 /** Int6502() ************************************************/
 /** This function will generate interrupt of a given type.  **/
 /** INT_NMI will cause a non-maskable interrupt. INT_IRQ    **/
 /** will cause a normal interrupt, unless I_FLAG set in R.  **/
 /*************************************************************/
-void Int6502(register M6502 *R, register byte Type);
+void Int6502(M6502 *R, byte Type);
 
 /** Run6502() ************************************************/
 /** This function will run 6502 code until Loop6502() call  **/
 /** returns INT_QUIT. It will return the PC at which        **/
 /** emulation stopped, and current register values in R.    **/
 /*************************************************************/
-word Run6502(register M6502 *R);
+word Run6502(M6502 *R);
 
 /** Rd6502()/Wr6502/Op6502() *********************************/
 /** These functions are called when access to RAM occurs.   **/
@@ -100,9 +100,9 @@ word Run6502(register M6502 *R);
 /** checks can be skipped to make it fast. It is only       **/
 /** required if there is a #define FAST_RDOP.               **/
 /************************************ TO BE WRITTEN BY USER **/
-void Wr6502(register word Addr, register byte Value);
-byte Rd6502(register word Addr);
-byte Op6502(register word Addr);
+void Wr6502(word Addr, byte Value);
+byte Rd6502(word Addr);
+byte Op6502(word Addr);
 
 
 /** Loop6502() ***********************************************/
@@ -112,7 +112,7 @@ byte Op6502(register word Addr);
 /** INT_NONE, INT_IRQ, INT_NMI, or INT_QUIT to exit the     **/
 /** emulation loop.                                         **/
 /************************************ TO BE WRITTEN BY USER **/
-byte Loop6502(register M6502 *R);
+byte Loop6502(M6502 *R);
 
 #ifdef __cplusplus
 }
