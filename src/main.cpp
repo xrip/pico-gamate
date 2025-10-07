@@ -70,6 +70,11 @@ typedef struct __attribute__((__packed__)) {
     uint32_t rgb3;
 } SETTINGS;
 
+uint32_t rgb0;
+uint32_t rgb1;
+uint32_t rgb2;
+uint32_t rgb3;
+
 SETTINGS settings = {
     .version = 1,
     .swap_ab = false,
@@ -104,7 +109,7 @@ static kbd_t keyboard = {
     .bits = { false, false, false, false, false, false, false, false },
     .h_code = -1
 };
-static input_bits_t gamepad1_bits = { false, false, false, false, false, false, false, false };
+input_bits_t gamepad1_bits = { false, false, false, false, false, false, false, false };
 static input_bits_t gamepad2_bits = { false, false, false, false, false, false, false, false };
 
 bool swap_ab = false;
@@ -668,6 +673,10 @@ void load_config() {
         f_read(&file, &settings, sizeof(settings), &bytes_read);
         f_close(&file);
     }
+    rgb0 = settings.rgb0;
+    rgb1 = settings.rgb1;
+    rgb2 = settings.rgb2;
+    rgb3 = settings.rgb3;
 }
 
 void save_config() {
@@ -711,7 +720,8 @@ const MenuItem menu_items[] = {
         {},
         { "Ghosting pix: %i ", INT, &settings.ghosting, nullptr, 6 }, // 6 == shift 1, 5->2, 4->3, 3->4, 2->5, 1->6, 0->7
         { "Palette: %s ", ARRAY, &settings.palette, nullptr, count_of(palettes), {
-                  "DEFAULT          "
+                  "GREEN-ORANGE     "
+                , "DEFAULT          "
                 , "BLACK & WHITE    "
                 , "AMBER            "
                 , "GREEN            "
@@ -744,10 +754,10 @@ const MenuItem menu_items[] = {
                 , "TV-LINK          "
                 , "CUSTOM           "
          }},
-        { "RGB0: %06Xh ", HEX, &settings.rgb0, nullptr, 0xFFFFFF },
-        { "RGB1: %06Xh ", HEX, &settings.rgb1, nullptr, 0xFFFFFF },
-        { "RGB2: %06Xh ", HEX, &settings.rgb2, nullptr, 0xFFFFFF },
-        { "RGB3: %06Xh ", HEX, &settings.rgb3, nullptr, 0xFFFFFF },
+        { "RGB0: %06Xh ", HEX, &rgb0, nullptr, 0xFFFFFF },
+        { "RGB1: %06Xh ", HEX, &rgb1, nullptr, 0xFFFFFF },
+        { "RGB2: %06Xh ", HEX, &rgb2, nullptr, 0xFFFFFF },
+        { "RGB3: %06Xh ", HEX, &rgb3, nullptr, 0xFFFFFF },
 #if VGA
         { "Keep aspect ratio: %s",     ARRAY, &settings.aspect_ratio,  nullptr, 1, {"NO ",       "YES"}},
 #endif
@@ -778,27 +788,28 @@ const MenuItem menu_items[] = {
 
 static inline void update_palette() {
     if (count_of(palettes) <= settings.palette) {
-        graphics_set_palette(0, settings.rgb0);
-        graphics_set_palette(1, settings.rgb1);
-        graphics_set_palette(2, settings.rgb2);
-        graphics_set_palette(3, settings.rgb3);
+        rgb0 = settings.rgb0;
+        rgb1 = settings.rgb1;
+        rgb2 = settings.rgb2;
+        rgb3 = settings.rgb3;
     } else {
-        const uint8_t (&palette)[12] = palettes[settings.palette];
-        for (int i = 0; i < 4; ++i) {
-            int i3 = i * 3;
-            graphics_set_palette(
-                i,
-                RGB888(
-                    palette[i3],
-                    palette[i3+1],
-                    palette[i3+2]
-                )
-            );
-        }
+        const uint8_t* palette = palettes[settings.palette];
+        rgb0 = RGB888(palette[0], palette[1], palette[2]);
+        rgb1 = RGB888(palette[3], palette[4], palette[5]);
+        rgb2 = RGB888(palette[6], palette[7], palette[8]);
+        rgb3 = RGB888(palette[9], palette[10], palette[11]);
     }
+    graphics_set_palette(0, rgb0);
+    graphics_set_palette(1, rgb1);
+    graphics_set_palette(2, rgb2);
+    graphics_set_palette(3, rgb3);
 }
 
 void menu() {
+    #ifdef HWAY
+        SendAY(0);
+        SendAY(AY_Enable);
+    #endif
     bool exit = false;
     graphics_set_mode(TEXTMODE_DEFAULT);
     char footer[TEXTMODE_COLS];
@@ -813,6 +824,7 @@ void menu() {
     while (!exit) {
         blink = !blink;
         bool hex_edit_mode = false;
+        int8_t h_code = keyboard.h_code;
         for (int i = 0; i < MENU_ITEMS_NUMBER; i++) {
             uint8_t y = i + (TEXTMODE_ROWS - MENU_ITEMS_NUMBER >> 1);
             uint8_t x = TEXTMODE_COLS / 2 - 10;
@@ -822,23 +834,28 @@ void menu() {
                 color = 0x01;
                 bg_color = 0xFF;
             }
+            int pal = settings.palette;
             const MenuItem* item = &menu_items[i];
             if (i == current_item) {
                 switch (item->type) {
                     case HEX:
                         if (item->max_value != 0 && count_of(palettes) <= settings.palette) {
                             uint32_t* value = (uint32_t *)item->value;
-                            if (keyboard.h_code >= 0) {
+                            if (h_code >= 0) {
                                 if (hex_digit < 0) hex_digit = 0;
                                 uint32_t vc = *value;
                                 vc &= ~(0xF << (5 - hex_digit) * 4);
-                                vc |= ((uint32_t)keyboard.h_code << (5 - hex_digit) * 4);
-                                keyboard.h_code = -1;
+                                vc |= ((uint32_t)h_code << (5 - hex_digit) * 4);
                                 if (++hex_digit == 6) {
                                     hex_digit = 0;
                                     current_item++;
                                 }
                                 if (vc < item->max_value) *value = vc;
+                                settings.rgb0 = rgb0;
+                                settings.rgb1 = rgb1;
+                                settings.rgb2 = rgb2;
+                                settings.rgb3 = rgb3;
+                                update_palette();
                                 break;
                             }
                             if (gamepad1_bits.right && hex_digit == 5) {
@@ -846,10 +863,12 @@ void menu() {
                             } else if (gamepad1_bits.right && hex_digit < 6) {
                                 hex_digit++;
                             }
-                            if (gamepad1_bits.left && hex_digit == -1) {
-                                hex_digit = 5;
-                            } else if (gamepad1_bits.left && hex_digit >= 0) {
-                                hex_digit--;
+                            if (h_code != 0xA) { // W/A for 'A' pressed
+                                if (gamepad1_bits.left && hex_digit == -1) {
+                                    hex_digit = 5;
+                                } else if (gamepad1_bits.left && hex_digit >= 0) {
+                                    hex_digit--;
+                                }
                             }
                             if (gamepad1_bits.up && hex_digit >= 0 && hex_digit <= 5) {
                                 uint32_t vc = *value + (1 << (5 - hex_digit) * 4);
@@ -891,6 +910,9 @@ void menu() {
                 if (nullptr != item->callback && gamepad1_bits.start) {
                     exit = item->callback();
                 }
+            }
+            if (pal != settings.palette) {
+                update_palette();
             }
             static char result[TEXTMODE_COLS];
             switch (item->type) {
@@ -950,7 +972,12 @@ void menu() {
 #else
     graphics_set_mode(GRAPHICSMODE_DEFAULT);
 #endif
-    update_palette();
+    if (count_of(palettes) <= settings.palette) {
+        settings.rgb0 = rgb0;
+        settings.rgb1 = rgb1;
+        settings.rgb2 = rgb2;
+        settings.rgb3 = rgb3;
+    }
     save_config();
 }
 
@@ -963,6 +990,7 @@ static int16_t audio_buffer[AUDIO_BUFFER_LENGTH] = { 0 };
 void __time_critical_func(render_core)() {
     multicore_lockout_victim_init();
 
+    tuh_init(BOARD_TUH_RHPORT);
     ps2kbd.init_gpio();
     nespad_begin(clock_get_hz(clk_sys) / 1000, NES_GPIO_CLK, NES_GPIO_DATA, NES_GPIO_LAT);
 
@@ -1024,7 +1052,7 @@ void __time_critical_func(render_core)() {
 #endif
         tick = time_us_64();
 
-        // tuh_task();
+        tuh_task();
         // hid_app_task();
         tight_loop_contents();
     }
