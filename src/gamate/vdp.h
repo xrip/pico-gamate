@@ -7,24 +7,42 @@
 #include <cstdint>
 
 static const uint8_t palettes[][12] = {
-        {
-                0xD4, 0xFF, 0xFD,
-                0xFF, 0xA2, 0x00,
-                0x00, 0x99, 0x4C,
-                0x9B, 0x05, 0x00,
-        }, /* GREEN-ORANGE */
-        {
+        { /* SV_COLOR_SCHEME_DEFAULT */
                 0x6B, 0xA6, 0x4A,
                 0x43, 0x7A, 0x63,
                 0x25, 0x59, 0x55,
                 0x12, 0x42, 0x4C,
         },
-        {   /* SV_COLOR_SCHEME_DEFAULT */
+        { // BLACK & WHITE
                 252, 252, 252,
                 168, 168, 168,
                 84,  84,  84,
                 0,   0,   0,
         },
+        {   /* SV_COLOR_SCHEME_BGB */
+                224, 248, 208,
+                136, 192, 112,
+                52, 104,  86,
+                8,  24,  32,
+        },
+        { /* AUTUMN FOREST  */
+                0xD4, 0xFF, 0xFD,
+                0xF7, 0x90, 0x36,
+                0x13, 0x95, 0x66,
+                0x00, 0x52, 0x52
+        }, 
+        { /* OCEAN SAND */
+                0xD4, 0xFF, 0xF3,
+                0xF7, 0x90, 0x36,
+                0x34, 0x9B, 0xC0,
+                0x00, 0x52, 0x52
+        }, 
+        { /* MINT SAND */
+                0xD4, 0xFF, 0xFD,
+                0xFF, 0x80, 0x00,
+                0x00, 0x99, 0x99,
+                0x00, 0x52, 0x52
+        }, 
         {   /* SV_COLOR_SCHEME_AMBER */
                 252, 154,   0,
                 168, 102,   0,
@@ -42,12 +60,6 @@ static const uint8_t palettes[][12] = {
                 0, 102, 168,
                 0,  51,  84,
                 0,   0,   0,
-        },
-        {   /* SV_COLOR_SCHEME_BGB */
-                224, 248, 208,
-                136, 192, 112,
-                52, 104,  86,
-                8,  24,  32,
         },
         {   /* SV_COLOR_SCHEME_WATAROO */
                 0x7b, 0xc7, 0x7b,

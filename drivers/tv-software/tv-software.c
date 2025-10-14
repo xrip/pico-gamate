@@ -175,7 +175,6 @@ void graphics_set_modeTV(tv_out_mode_t mode) {
             break;
     }
 
-
     double color_freq;
     switch (tv_out_mode.c_freq) {
         case _3579545: color_freq = 3.579545 * 1e6;
@@ -211,6 +210,13 @@ void graphics_set_modeTV(tv_out_mode_t mode) {
 };
 
 void __not_in_flash_func(adjust_clk)(void) {
+    double color_freq;
+    switch (tv_out_mode.c_freq) {
+        case _3579545: color_freq = 3.579545 * 1e6;
+            break;
+        case _4433619: color_freq = 4.43361875 * 1e6;
+            break;
+    }
     sm_config_set_clkdiv((pio_sm_config*)PIO_VIDEO->sm, clock_get_hz(clk_sys) / (color_freq * 4));
 }
 

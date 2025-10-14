@@ -17,6 +17,7 @@
 
 #include <graphics.h>
 #include "audio.h"
+#include "main.h"
 
 #include "nespad.h"
 #include "ff.h"
@@ -56,20 +57,6 @@ semaphore vga_start_semaphore;
 
 uint8_t SCREEN[150][160];
 
-typedef struct __attribute__((__packed__)) {
-    uint8_t version;
-    bool swap_ab;
-    bool aspect_ratio;
-    uint8_t ghosting;
-    uint8_t palette;
-    uint8_t save_slot;
-    uint16_t tba;
-    uint32_t rgb0;
-    uint32_t rgb1;
-    uint32_t rgb2;
-    uint32_t rgb3;
-} SETTINGS;
-
 uint32_t rgb0;
 uint32_t rgb1;
 uint32_t rgb2;
@@ -86,7 +73,8 @@ SETTINGS settings = {
     .rgb0 = 0xCCFFFF,
     .rgb1 = 0xFFB266,
     .rgb2 = 0xCC0066,
-    .rgb3 = 0x663300
+    .rgb3 = 0x663300,
+    .instant_ignition = false
 };
 
 typedef struct input_bits_s {
@@ -119,8 +107,7 @@ void nespad_tick() {
     if (((nespad_state & DPAD_LEFT) && (nespad_state & DPAD_RIGHT)) ||
         ((nespad_state & DPAD_DOWN) && (nespad_state & DPAD_UP))
     ) {
-        gamepad1_bits = keyboard.bits;
-        return;
+        nespad_state = 0;
     }
 
     uint8_t controls_state = 0;
@@ -555,7 +542,11 @@ typedef struct __attribute__((__packed__)) {
 
 uint16_t frequencies[] = { 252, 362, 366, 378, 396, 404, 408, 412, 416, 420, 424, 432 };
 #ifdef PICO_RP2040
-uint8_t frequency_index = 3;
+    #ifdef CPU_FREQ
+    uint8_t frequency_index = 0;
+    #else
+    uint8_t frequency_index = 3;
+    #endif
 #else
 uint8_t frequency_index = 0;
 #endif
@@ -718,15 +709,17 @@ bool toggle_color() {
 const MenuItem menu_items[] = {
         {"Swap AB <> BA: %s",     ARRAY, &settings.swap_ab,  nullptr, 1, {"NO ",       "YES"}},
         {},
-        { "Ghosting pix: %i ", INT, &settings.ghosting, nullptr, 6 }, // 6 == shift 1, 5->2, 4->3, 3->4, 2->5, 1->6, 0->7
+        { "Ghosting pix: %i ", INT, &settings.ghosting, nullptr, 5 },
         { "Palette: %s ", ARRAY, &settings.palette, nullptr, count_of(palettes), {
-                  "GREEN-ORANGE     "
-                , "DEFAULT          "
+                  "DEFAULT          "
                 , "BLACK & WHITE    "
+                , "BGB              "
+                , "AUTUMN FOREST    "
+                , "OCEAN SAND       "
+                , "MINT SAND        "
                 , "AMBER            "
                 , "GREEN            "
                 , "BLUE             "
-                , "BGB              "
                 , "WATAROO          "
                 , "GB_DMG           "
                 , "GB_POCKET        "
@@ -761,6 +754,7 @@ const MenuItem menu_items[] = {
 #if VGA
         { "Keep aspect ratio: %s",     ARRAY, &settings.aspect_ratio,  nullptr, 1, {"NO ",       "YES"}},
 #endif
+        { "Instant ignition simulation: %s",     ARRAY, &settings.instant_ignition,  nullptr, 1, {"NO ",       "YES"}},
 #if SOFTTV
         { "" },
         { "TV system %s", ARRAY, &tv_out_mode.tv_system, nullptr, 1, { "PAL ", "NTSC" } },
@@ -786,6 +780,13 @@ const MenuItem menu_items[] = {
 };
 #define MENU_ITEMS_NUMBER (sizeof(menu_items) / sizeof (MenuItem))
 
+static inline uint32_t fast1of32(uint32_t v, int i) {
+///    return (uint32_t)((v / 32.0) * (i + 1)) & 0xFF;
+    v -= (31 - i);
+    if (v > 0xFF) v = 0;
+    return v;
+}
+
 static inline void update_palette() {
     if (count_of(palettes) <= settings.palette) {
         rgb0 = settings.rgb0;
@@ -799,10 +800,31 @@ static inline void update_palette() {
         rgb2 = RGB888(palette[6], palette[7], palette[8]);
         rgb3 = RGB888(palette[9], palette[10], palette[11]);
     }
-    graphics_set_palette(0, rgb0);
-    graphics_set_palette(1, rgb1);
-    graphics_set_palette(2, rgb2);
-    graphics_set_palette(3, rgb3);
+    uint32_t r, g, b;
+    r = rgb0 >> 16;
+    g = (rgb0 >> 8) & 0xFF;
+    b = rgb0 & 0xFF;
+    for (int i = 0; i < 32; ++i) {
+        graphics_set_palette(i, RGB888(fast1of32(r, i), fast1of32(g, i), fast1of32(b, i)));
+    }
+    r = rgb1 >> 16;
+    g = (rgb1 >> 8) & 0xFF;
+    b = rgb1 & 0xFF;
+    for (int i = 0; i < 32; ++i) {
+        graphics_set_palette(i + 32, RGB888(fast1of32(r, i), fast1of32(g, i), fast1of32(b, i)));
+    }
+    r = rgb2 >> 16;
+    g = (rgb2 >> 8) & 0xFF;
+    b = rgb2 & 0xFF;
+    for (int i = 0; i < 32; ++i) {
+        graphics_set_palette(i + 64, RGB888(fast1of32(r, i), fast1of32(g, i), fast1of32(b, i)));
+    }
+    r = rgb3 >> 16;
+    g = (rgb3 >> 8) & 0xFF;
+    b = rgb3 & 0xFF;
+    for (int i = 0; i < 32; ++i) {
+        graphics_set_palette(i + 96, RGB888(fast1of32(r, i), fast1of32(g, i), fast1of32(b, i)));
+    }
 }
 
 void menu() {
@@ -846,16 +868,21 @@ void menu() {
                                 uint32_t vc = *value;
                                 vc &= ~(0xF << (5 - hex_digit) * 4);
                                 vc |= ((uint32_t)h_code << (5 - hex_digit) * 4);
-                                if (++hex_digit == 6) {
-                                    hex_digit = 0;
-                                    current_item++;
+                                if (vc <= item->max_value) {
+                                    *value = vc;
+                                    if (++hex_digit == 6) {
+                                        h_code = -1;
+                                        hex_digit = -1;
+                                        keyboard.h_code = -1;
+                                        current_item++;
+                                    }
                                 }
-                                if (vc < item->max_value) *value = vc;
                                 settings.rgb0 = rgb0;
                                 settings.rgb1 = rgb1;
                                 settings.rgb2 = rgb2;
                                 settings.rgb3 = rgb3;
                                 update_palette();
+                                sleep_ms(125);
                                 break;
                             }
                             if (gamepad1_bits.right && hex_digit == 5) {

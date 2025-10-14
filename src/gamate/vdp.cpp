@@ -209,62 +209,71 @@ static inline void get_real_x_and_y(int &ret_x, int &ret_y, int scanline) {
     }
 }
 
-// 4 gradients 0b000000xy converted to 0bxxxxyyyy
+#include "../main.h"
+
+static inline uint8_t __time_critical_func(convert_to_rich_format)(uint8_t v2b, uint8_t pre_v, uint8_t ghost_speed, uint8_t ghosting) {
+    // новый код палитры
+    v2b &= m_displayblank ? 0 : 0b11;
+    // старый код палитры
+    uint8_t p2b = (pre_v >> 5) & 0b11;
+    // старый код интенсивности
+    uint8_t pre_v5 = pre_v & 0b11111;
+    if (p2b == v2b) { // коды палитры совпадают
+        uint8_t new_v = (v2b << 5) | 0b11111; // стремимся к этому значению
+        uint8_t v = (pre_v5 << ghost_speed) | ghosting | (v2b << 5);
+        if (v > new_v) v = new_v; // как-то получилось больше... как?
+        return v;
+    }
+    if (settings.instant_ignition && p2b < v2b) { // старый код палитры меньше, т.е. это "зажигание"
+        return (v2b << 5) | 0b11111;; // симулируем мгновенное зажигание
+    }
+    if (pre_v5 != 0) { // код палитры сменился
+        // уменьшаем интенсивность, но не меняем пока код самой палитры
+        return (pre_v5 >> ghost_speed) | (pre_v & 0b1100000); 
+    }
+    // код палитры сменился, а интенсивность старой пришла в ноль
+    return (v2b << 5) | ghosting; // возвращаем новый код палитры и минимальное дополнение перед сдвигом
+}
+
 static inline uint8_t get_pixel_from_vram(int x, int y) {
     x &= 0xff;
     y &= 0xff;
-
     int x_byte = x >> 3;
     x &= 0x7; // x pixel;
-
     int address = ((y * 0x20) + x_byte) << 1;
-
     uint8_t plane0 = (VRAM[address] >> (7 - x)) & 0x1;
     uint8_t plane1 = (VRAM[address + 1] >> (7 - x)) & 0x1;
-
     if (!m_swapplanes)
-        return (plane0 ? 0b1111 : 0) | (plane1 ? 0b11110000: 0);
-    else
-        return (plane1 ? 0b1111 : 0) | (plane0 ? 0b11110000: 0); // does any game use this?
+        return plane0 | (plane1 << 1);
+    return plane1 | (plane0 << 1);
 }
 
-static uint8_t expected_screen[150*160] = { 0 };
-static uint8_t rich_screen[150*160] = { 0 }; // current extended value
+static uint8_t screen2[150 * 160];
+
 void __time_critical_func(screen_update)(uint8_t *screen, uint8_t ghosting) {
     int real_x, real_y;
-    if (m_displayblank) {
-        memset(expected_screen, 0, sizeof(expected_screen));
-        goto convert;
-    }
-    // LCD flow: 250 ms (15 frames) rise, 200 ms (12 frames) fall
-    for (int scanline = 0; scanline < 150; scanline++) {
-        get_real_x_and_y(real_x, real_y, scanline);
-        uint8_t* p = expected_screen + scanline * 160;
-        for (int x = 0; x < 160; ++x) {
-            *p++ = get_pixel_from_vram(x + real_x, real_y);
+    if (ghosting) {
+        // LCD flow: 250 ms (15 frames) rise, 200 ms (12 frames) fall
+        uint8_t ghost_speed = ghosting < 6 ? (6 - ghosting) : 1;
+        ghosting = (0xFF >> (ghosting + 2)); // mask to extend values
+        for (int scanline = 0; scanline < 150; scanline++) {
+            get_real_x_and_y(real_x, real_y, scanline);
+            uint8_t* p = screen2 + scanline * 160;
+            for (int x = 0; x < 160; ++x) {
+                uint8_t b = get_pixel_from_vram(x + real_x, real_y);
+                *p++ = convert_to_rich_format(b, *p, ghost_speed, ghosting);
+            }
+        }
+    } else {
+        for (int scanline = 0; scanline < 150; scanline++) {
+            get_real_x_and_y(real_x, real_y, scanline);
+            uint8_t* p = screen2 + scanline * 160;
+            for (int x = 0; x < 160; ++x) {
+                *p++ = (get_pixel_from_vram(x + real_x, real_y) << 5) | 0b11111;
+            }
         }
     }
-convert:
-    uint8_t ghost_speed = ghosting < 7 ? (7 - ghosting) : 1;
-    ghosting = (0xFF >> (ghosting + 1)); // mask to extend values
-    uint8_t* p_out = screen;
-    uint8_t* p_exp = expected_screen;
-    uint8_t* p_rich = rich_screen;
-    for (int i = 0; i < sizeof(rich_screen); ++i) {
-        uint8_t new_v = *p_exp++;
-        uint8_t pre_v = *p_rich;
-        uint8_t v;
-        if (new_v > pre_v) {
-            v = (pre_v << ghost_speed) | ghosting;
-            if (v > new_v) v = new_v;
-        } else {
-            v = pre_v >> ghost_speed;
-            if (v < new_v) v = new_v;
-        }
-        *p_rich++ = v;
-        // back to output style format -> 0bxy
-        *p_out++ = ((v >> 4) ? 0b10 : 0) | ((v & 0b1111) ? 0b01 : 0);
-    }
+    memcpy(screen, screen2, sizeof(screen2));
 }
 
 void vdp_savestate(int regs[8]) {
